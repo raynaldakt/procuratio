@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import uuid4
 
 import jwt
 from passlib.context import CryptContext
@@ -23,6 +24,7 @@ def create_token(subject: str, token_type: str, expires_minutes: int, secret: st
     payload: dict[str, Any] = {
         "sub": subject,
         "type": token_type,
+        "jti": uuid4().hex,
         "iat": now,
         "exp": now + timedelta(minutes=expires_minutes),
     }
@@ -49,3 +51,7 @@ def create_refresh_token(subject: str) -> str:
 
 def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_access_secret, algorithms=[settings.jwt_algorithm])
+
+
+def decode_refresh_token(token: str) -> dict[str, Any]:
+    return jwt.decode(token, settings.jwt_refresh_secret, algorithms=[settings.jwt_algorithm])

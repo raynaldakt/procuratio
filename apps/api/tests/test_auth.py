@@ -88,3 +88,47 @@ def test_users_list_requires_admin_or_manager() -> None:
     )
     assert allowed_response.status_code == 200
     assert any(row["email"] == email for row in allowed_response.json())
+
+
+def test_refresh_rotates_refresh_token() -> None:
+    client = TestClient(app)
+    email = _unique_email()
+
+    _register(client, email)
+    login_response = _login(client, email)
+    first_pair = login_response.json()
+
+    refresh_response = client.post(
+        "/auth/refresh",
+        json={"refresh_token": first_pair["refresh_token"]},
+    )
+    assert refresh_response.status_code == 200
+    second_pair = refresh_response.json()
+    assert second_pair["refresh_token"] != first_pair["refresh_token"]
+
+    old_refresh_reuse = client.post(
+        "/auth/refresh",
+        json={"refresh_token": first_pair["refresh_token"]},
+    )
+    assert old_refresh_reuse.status_code == 401
+
+
+def test_logout_invalidates_refresh_token() -> None:
+    client = TestClient(app)
+    email = _unique_email()
+
+    _register(client, email)
+    login_response = _login(client, email)
+    pair = login_response.json()
+
+    logout_response = client.post(
+        "/auth/logout",
+        headers={"Authorization": f"Bearer {pair['access_token']}"},
+    )
+    assert logout_response.status_code == 200
+
+    refresh_after_logout = client.post(
+        "/auth/refresh",
+        json={"refresh_token": pair["refresh_token"]},
+    )
+    assert refresh_after_logout.status_code == 401
