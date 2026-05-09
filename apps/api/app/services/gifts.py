@@ -117,7 +117,10 @@ def list_vouchers(db: Session, status: str | None, code: str | None) -> list[Gif
 
 
 def _is_expired(voucher: GiftVoucher) -> bool:
-    return datetime.now(timezone.utc) > voucher.expires_at
+    expires_at = voucher.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) > expires_at
 
 
 def validate_voucher(voucher: GiftVoucher) -> None:
