@@ -37,7 +37,7 @@ def create_user(db: Session, payload: UserCreate) -> User:
         email=payload.email.lower().strip(),
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
-        role=payload.role,
+        role="customer",
         is_active=True,
     )
     db.add(new_user)
