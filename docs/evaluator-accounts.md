@@ -7,25 +7,40 @@ Use these accounts to test the deployed Procuratio environment.
 - API docs: `<PUT_DEMO_URL_HERE>/docs`
 - Build/version: `<COMMIT_SHA_OR_TAG>`
 
+## Account provisioning (recommended)
+
+You can generate/reset demo accounts with:
+
+```bash
+cd ~/Projects/Procuratio
+docker compose exec -T api python scripts/seed_demo_accounts.py
+```
+
+Default seeded credentials:
+- `admin@procuratio.demo` / `Admin123!`
+- `manager@procuratio.demo` / `Manager123!`
+- `staff@procuratio.demo` / `Staff123!`
+- `customer@procuratio.demo` / `Customer123!`
+
 ## 1. Admin account
-- Email/Login: `<ADMIN_EMAIL>`
-- Password: `<ADMIN_PASSWORD>`
+- Email/Login: `admin@procuratio.demo`
+- Password: `Admin123!`
 - Role: `admin`
 - Expected permissions:
 - Full access to all modules and routes.
 - Can perform manager/staff actions.
 
 ## 2. Manager account
-- Email/Login: `<MANAGER_EMAIL>`
-- Password: `<MANAGER_PASSWORD>`
+- Email/Login: `manager@procuratio.demo`
+- Password: `Manager123!`
 - Role: `manager`
 - Expected permissions:
 - Access operational modules.
 - Can run sensitive controls (examples: manual loyalty adjustment, voucher cancellation, employee scheduling settings).
 
 ## 3. Staff account
-- Email/Login: `<STAFF_EMAIL>`
-- Password: `<STAFF_PASSWORD>`
+- Email/Login: `staff@procuratio.demo`
+- Password: `Staff123!`
 - Role: `staff`
 - Expected permissions:
 - POS operations (tickets, lines, suspend/resume, checkout).
@@ -34,8 +49,8 @@ Use these accounts to test the deployed Procuratio environment.
 - Cannot access manager/admin-only controls.
 
 ## 4. Customer account
-- Email/Login: `<CUSTOMER_EMAIL>`
-- Password: `<CUSTOMER_PASSWORD>`
+- Email/Login: `customer@procuratio.demo`
+- Password: `Customer123!`
 - Role: `customer`
 - Expected permissions:
 - Own profile and loyalty views.
