@@ -10,6 +10,11 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
+    jwt_access_secret: str = "change_me"
+    jwt_refresh_secret: str = "change_me"
+    jwt_algorithm: str = "HS256"
+    jwt_access_expires_minutes: int = 30
+    jwt_refresh_expires_minutes: int = 60 * 24 * 7
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
