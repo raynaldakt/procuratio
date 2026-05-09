@@ -48,6 +48,18 @@ from app.schemas.sales import (
     SaleTicketSetCustomer,
     SaleTicketSetDiscount,
 )
+from app.schemas.shop import (
+    ProductReservationPublic,
+    ReservationSweepResponse,
+    ShopCartAddLine,
+    ShopCartCreate,
+    ShopCheckoutPurchase,
+    ShopCheckoutPurchaseResponse,
+    ShopCheckoutReserve,
+    ShopOrderDetails,
+    ShopOrderLinePublic,
+    ShopOrderPublic,
+)
 from app.schemas.stats import StatsOverview, StatsTimeseries, StatsTimeseriesPoint, TopItem
 
 __all__ = [
@@ -96,6 +108,16 @@ __all__ = [
     "SaleTicketPublic",
     "SaleTicketDetails",
     "SaleCheckoutReceipt",
+    "ShopCartCreate",
+    "ShopCartAddLine",
+    "ShopCheckoutPurchase",
+    "ShopCheckoutReserve",
+    "ShopOrderPublic",
+    "ShopOrderLinePublic",
+    "ShopOrderDetails",
+    "ProductReservationPublic",
+    "ShopCheckoutPurchaseResponse",
+    "ReservationSweepResponse",
     "TopItem",
     "StatsOverview",
     "StatsTimeseriesPoint",
