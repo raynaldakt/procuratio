@@ -1,0 +1,145 @@
+services:
+  postgres:
+    container_name: postgres_procuratio
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-procuratio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-procuratio_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-procuratio}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_procuratio_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-procuratio} -d ${POSTGRES_DB:-procuratio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  nginx:
+    image: nginx:stable
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
+      - backoffice-web
+      - customer-web
+
+  api:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://procuratio:procuratio_dev@postgres:5432/procuratio}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me}
+    volumes:
+      - ./apps/api:/app
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-jobs:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "echo 'Worker scaffold pending (Celery/RQ)' && sleep infinity"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://procuratio:procuratio_dev@postgres:5432/procuratio}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ./services/worker-jobs:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  notification-service:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "echo 'Notification service scaffold pending' && sleep infinity"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+    volumes:
+      - ./services/notification-service:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  payment-webhook:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "echo 'Payment webhook scaffold pending' && sleep infinity"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://procuratio:procuratio_dev@postgres:5432/procuratio}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    volumes:
+      - ./services/payment-webhook:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  backoffice-web:
+    image: node:22
+    working_dir: /app
+    command: sh -c "echo 'Backoffice web scaffold pending' && sleep infinity"
+    volumes:
+      - ./apps/backoffice-web:/app
+    depends_on:
+      - api
+
+  customer-web:
+    image: node:22
+    working_dir: /app
+    command: sh -c "echo 'Customer web scaffold pending' && sleep infinity"
+    volumes:
+      - ./apps/customer-web:/app
+    depends_on:
+      - api
+
+volumes:
+  postgres_procuratio_data:
