@@ -14,8 +14,10 @@ jobs:
   test-api:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
+      DATABASE_URL: sqlite:///./ci_test.db
       REDIS_URL: redis://localhost:6379/0
+      JWT_ACCESS_SECRET: ci_access_secret
+      JWT_REFRESH_SECRET: ci_refresh_secret
 
     steps:
       - name: Checkout
@@ -34,4 +36,6 @@ jobs:
 
       - name: Run tests
         working-directory: apps/api
-        run: pytest -q
+        run: |
+          rm -f ci_test.db
+          pytest -q
