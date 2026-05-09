@@ -48,6 +48,7 @@ from app.schemas.sales import (
     SaleTicketSetCustomer,
     SaleTicketSetDiscount,
 )
+from app.schemas.stats import StatsOverview, StatsTimeseries, StatsTimeseriesPoint, TopItem
 
 __all__ = [
     "UserCreate",
@@ -95,4 +96,8 @@ __all__ = [
     "SaleTicketPublic",
     "SaleTicketDetails",
     "SaleCheckoutReceipt",
+    "TopItem",
+    "StatsOverview",
+    "StatsTimeseriesPoint",
+    "StatsTimeseries",
 ]
