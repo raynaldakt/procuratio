@@ -20,6 +20,20 @@ from app.schemas.customer import (
     LoyaltyTransactionPublic,
     LoyaltyVisitRequest,
 )
+from app.schemas.sales import (
+    ProductCreate,
+    ProductPublic,
+    SaleCheckoutReceipt,
+    SaleTicketCheckout,
+    SaleTicketCreate,
+    SaleTicketDetails,
+    SaleTicketLineAddProduct,
+    SaleTicketLineAddService,
+    SaleTicketLinePublic,
+    SaleTicketPublic,
+    SaleTicketSetCustomer,
+    SaleTicketSetDiscount,
+)
 
 __all__ = [
     "UserCreate",
@@ -45,4 +59,16 @@ __all__ = [
     "AvailabilityQuery",
     "AvailabilitySlot",
     "AppointmentCancelResponse",
+    "ProductCreate",
+    "ProductPublic",
+    "SaleTicketCreate",
+    "SaleTicketLineAddProduct",
+    "SaleTicketLineAddService",
+    "SaleTicketSetCustomer",
+    "SaleTicketSetDiscount",
+    "SaleTicketCheckout",
+    "SaleTicketLinePublic",
+    "SaleTicketPublic",
+    "SaleTicketDetails",
+    "SaleCheckoutReceipt",
 ]
