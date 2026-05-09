@@ -20,6 +20,13 @@ from app.schemas.customer import (
     LoyaltyTransactionPublic,
     LoyaltyVisitRequest,
 )
+from app.schemas.campaign import (
+    CampaignPublic,
+    CampaignSendRequest,
+    CampaignSendResponse,
+    NotificationMarkStatus,
+    NotificationMessagePublic,
+)
 from app.schemas.sales import (
     ProductCreate,
     ProductPublic,
@@ -59,6 +66,11 @@ __all__ = [
     "AvailabilityQuery",
     "AvailabilitySlot",
     "AppointmentCancelResponse",
+    "CampaignSendRequest",
+    "CampaignPublic",
+    "CampaignSendResponse",
+    "NotificationMessagePublic",
+    "NotificationMarkStatus",
     "ProductCreate",
     "ProductPublic",
     "SaleTicketCreate",

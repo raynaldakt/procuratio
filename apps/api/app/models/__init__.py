@@ -2,6 +2,8 @@ from app.models.appointment import Appointment
 from app.models.customer_profile import CustomerProfile
 from app.models.employee_profile import EmployeeProfile
 from app.models.loyalty_transaction import LoyaltyTransaction
+from app.models.marketing_campaign import MarketingCampaign
+from app.models.notification_message import NotificationMessage
 from app.models.product_item import ProductItem
 from app.models.sale_ticket import SaleTicket
 from app.models.sale_ticket_line import SaleTicketLine
@@ -14,6 +16,8 @@ __all__ = [
     "UserRefreshToken",
     "CustomerProfile",
     "LoyaltyTransaction",
+    "MarketingCampaign",
+    "NotificationMessage",
     "ProductItem",
     "SaleTicket",
     "SaleTicketLine",
