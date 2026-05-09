@@ -13,6 +13,9 @@ on:
 jobs:
   test-api:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
+      REDIS_URL: redis://localhost:6379/0
 
     steps:
       - name: Checkout
