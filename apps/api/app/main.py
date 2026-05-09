@@ -4,6 +4,7 @@ from app.api.routes.appointments import router as appointments_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.campaigns import router as campaigns_router
 from app.api.routes.customers import router as customers_router
+from app.api.routes.gifts import router as gifts_router
 from app.api.routes.health import router as health_router
 from app.api.routes.loyalty import router as loyalty_router
 from app.api.routes.sales import router as sales_router
@@ -33,6 +34,7 @@ app.include_router(auth_router)
 app.include_router(appointments_router)
 app.include_router(campaigns_router)
 app.include_router(sales_router)
+app.include_router(gifts_router)
 app.include_router(users_router)
 app.include_router(customers_router)
 app.include_router(loyalty_router)

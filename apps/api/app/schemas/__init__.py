@@ -20,6 +20,13 @@ from app.schemas.customer import (
     LoyaltyTransactionPublic,
     LoyaltyVisitRequest,
 )
+from app.schemas.gifts import (
+    GiftVoucherCreate,
+    GiftVoucherPublic,
+    GiftVoucherRedeemRequest,
+    GiftVoucherRedeemResponse,
+    GiftVoucherRedemptionPublic,
+)
 from app.schemas.campaign import (
     CampaignPublic,
     CampaignSendRequest,
@@ -71,6 +78,11 @@ __all__ = [
     "CampaignSendResponse",
     "NotificationMessagePublic",
     "NotificationMarkStatus",
+    "GiftVoucherCreate",
+    "GiftVoucherPublic",
+    "GiftVoucherRedeemRequest",
+    "GiftVoucherRedemptionPublic",
+    "GiftVoucherRedeemResponse",
     "ProductCreate",
     "ProductPublic",
     "SaleTicketCreate",

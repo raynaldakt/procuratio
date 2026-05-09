@@ -1,6 +1,8 @@
 from app.models.appointment import Appointment
 from app.models.customer_profile import CustomerProfile
 from app.models.employee_profile import EmployeeProfile
+from app.models.gift_voucher import GiftVoucher
+from app.models.gift_voucher_redemption import GiftVoucherRedemption
 from app.models.loyalty_transaction import LoyaltyTransaction
 from app.models.marketing_campaign import MarketingCampaign
 from app.models.notification_message import NotificationMessage
@@ -23,5 +25,7 @@ __all__ = [
     "SaleTicketLine",
     "ServiceOffering",
     "EmployeeProfile",
+    "GiftVoucher",
+    "GiftVoucherRedemption",
     "Appointment",
 ]
