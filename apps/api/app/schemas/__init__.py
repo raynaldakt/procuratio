@@ -1,4 +1,16 @@
 from app.schemas.auth import LoginRequest, LogoutResponse, RefreshRequest, TokenPair, UserCreate, UserPublic
+from app.schemas.appointment import (
+    AppointmentCancelResponse,
+    AppointmentCreateSelf,
+    AppointmentCreateStaff,
+    AppointmentPublic,
+    AvailabilityQuery,
+    AvailabilitySlot,
+    EmployeeProfilePublic,
+    EmployeeProfileUpsert,
+    ServiceOfferingCreate,
+    ServiceOfferingPublic,
+)
 from app.schemas.customer import (
     CustomerProfilePublic,
     CustomerProfileUpdateSelf,
@@ -23,4 +35,14 @@ __all__ = [
     "LoyaltyVisitRequest",
     "LoyaltyAdjustmentRequest",
     "LoyaltyTransactionPublic",
+    "ServiceOfferingCreate",
+    "ServiceOfferingPublic",
+    "EmployeeProfileUpsert",
+    "EmployeeProfilePublic",
+    "AppointmentCreateSelf",
+    "AppointmentCreateStaff",
+    "AppointmentPublic",
+    "AvailabilityQuery",
+    "AvailabilitySlot",
+    "AppointmentCancelResponse",
 ]
