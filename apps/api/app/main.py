@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.appointments import router as appointments_router
 from app.api.routes.auth import router as auth_router
@@ -20,6 +21,20 @@ app = FastAPI(
     version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
+)
+
+raw_origins = settings.cors_allow_origins.strip()
+if raw_origins == "*":
+    allow_origins = ["*"]
+else:
+    allow_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins or ["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
