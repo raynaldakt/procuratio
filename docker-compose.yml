@@ -53,6 +53,8 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me}
       PAYMENT_WEBHOOK_TOKEN: ${PAYMENT_WEBHOOK_TOKEN:-change_me}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_CHECKOUT_CURRENCY: ${STRIPE_CHECKOUT_CURRENCY:-eur}
     volumes:
       - ./apps/api:/app
     healthcheck:

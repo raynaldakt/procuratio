@@ -16,6 +16,8 @@ from app.schemas.shop import (
     ShopCheckoutPurchase,
     ShopCheckoutPurchaseResponse,
     ShopCheckoutReserve,
+    ShopCheckoutStripeSessionCreate,
+    ShopCheckoutStripeSessionResponse,
     ShopOrderDetails,
     ShopOrderPublic,
     StripeWebhookEventIn,
@@ -27,6 +29,7 @@ from app.services.shop import (
     cancel_reservation,
     checkout_purchase,
     checkout_reservation,
+    create_stripe_checkout_session,
     collect_reservation,
     get_order_details,
     get_order_for_customer_or_none,
@@ -134,6 +137,30 @@ def checkout_cart_reserve(
 
     _, lines = get_order_details(db, order)
     return ShopOrderDetails(order=ShopOrderPublic.model_validate(order), lines=lines)
+
+
+@router.post("/cart/checkout/stripe-session", response_model=ShopCheckoutStripeSessionResponse)
+def checkout_cart_stripe_session(
+    payload: ShopCheckoutStripeSessionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ShopCheckoutStripeSessionResponse:
+    order = get_or_create_cart(db, current_user.id)
+    try:
+        order, session_id, checkout_url = create_stripe_checkout_session(
+            db,
+            order=order,
+            success_url=str(payload.success_url),
+            cancel_url=str(payload.cancel_url),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return ShopCheckoutStripeSessionResponse(
+        order=ShopOrderPublic.model_validate(order),
+        session_id=session_id,
+        checkout_url=checkout_url,
+    )
 
 
 @router.get("/orders/me", response_model=list[ShopOrderPublic])

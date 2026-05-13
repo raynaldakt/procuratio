@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class ShopCartCreate(BaseModel):
@@ -89,3 +89,14 @@ class StripeWebhookEventIn(BaseModel):
 class StripeWebhookEventProcessResponse(BaseModel):
     result: Literal["processed", "duplicate", "ignored", "failed"]
     detail: str
+
+
+class ShopCheckoutStripeSessionCreate(BaseModel):
+    success_url: HttpUrl
+    cancel_url: HttpUrl
+
+
+class ShopCheckoutStripeSessionResponse(BaseModel):
+    order: ShopOrderPublic
+    session_id: str
+    checkout_url: str

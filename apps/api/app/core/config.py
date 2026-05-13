@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     jwt_access_expires_minutes: int = 30
     jwt_refresh_expires_minutes: int = 60 * 24 * 7
     payment_webhook_token: str = "change_me"
+    stripe_secret_key: str = ""
+    stripe_checkout_currency: str = "eur"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 

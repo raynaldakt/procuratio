@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta, timezone
+import json
 from threading import Lock
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
 from app.models.payment_webhook_event import PaymentWebhookEvent
@@ -55,6 +60,12 @@ def _recompute_order_totals(db: Session, order: ShopOrder) -> ShopOrder:
     db.commit()
     db.refresh(order)
     return order
+
+
+def _append_order_note(order: ShopOrder, line: str) -> None:
+    existing = order.notes or ""
+    combined = f"{existing}\n{line}".strip() if existing else line
+    order.notes = combined[:500]
 
 
 def get_or_create_cart(db: Session, customer_user_id: int, notes: str | None = None) -> ShopOrder:
@@ -205,8 +216,7 @@ def _apply_paid_transition(db: Session, order: ShopOrder, payment_method: str, p
     order.fulfillment_mode = "purchase"
     order.payment_status = "paid"
     if payment_reference:
-        order.notes = (order.notes or "") + f"\npayment_ref:{payment_reference}"
-        order.notes = order.notes.strip()[:500]
+        _append_order_note(order, f"payment_ref:{payment_reference}")
     order.payment_method = payment_method
     order.confirmed_at = datetime.now(timezone.utc)
 
@@ -222,6 +232,95 @@ def _apply_paid_transition(db: Session, order: ShopOrder, payment_method: str, p
         loyalty_points = max(0, txn.points_delta)
 
     return loyalty_points
+
+
+def create_stripe_checkout_session(
+    db: Session,
+    *,
+    order: ShopOrder,
+    success_url: str,
+    cancel_url: str,
+) -> tuple[ShopOrder, str, str]:
+    settings = get_settings()
+    if not settings.stripe_secret_key:
+        raise ValueError("Stripe is not configured (missing STRIPE_SECRET_KEY)")
+    if order.status != "cart":
+        raise ValueError("Order is not payable")
+
+    lines = _order_lines(db, order.id)
+    if not lines:
+        raise ValueError("Cart is empty")
+
+    for line in lines:
+        product = db.get(ProductItem, line.product_item_id)
+        if product is None or not product.is_active:
+            raise ValueError("Product not found")
+        if product.stock_quantity < line.quantity:
+            raise ValueError("Insufficient stock")
+
+    _recompute_order_totals(db, order)
+    order.status = "payment_pending"
+    order.fulfillment_mode = "purchase"
+    order.payment_status = "pending"
+    order.payment_method = "card"
+    db.commit()
+    db.refresh(order)
+
+    form: list[tuple[str, str]] = [
+        ("mode", "payment"),
+        ("success_url", success_url),
+        ("cancel_url", cancel_url),
+        ("client_reference_id", str(order.id)),
+        ("metadata[order_id]", str(order.id)),
+        ("payment_intent_data[metadata][order_id]", str(order.id)),
+    ]
+
+    for idx, line in enumerate(lines):
+        product = db.get(ProductItem, line.product_item_id)
+        if product is None:
+            continue
+        form.extend(
+            [
+                (f"line_items[{idx}][quantity]", str(line.quantity)),
+                (f"line_items[{idx}][price_data][currency]", settings.stripe_checkout_currency),
+                (f"line_items[{idx}][price_data][unit_amount]", str(line.unit_price_cents)),
+                (f"line_items[{idx}][price_data][product_data][name]", product.name),
+                (
+                    f"line_items[{idx}][price_data][product_data][description]",
+                    (product.description or product.product_type or "Procuratio product")[:250],
+                ),
+            ]
+        )
+
+    body = urlencode(form).encode("utf-8")
+    request = Request(
+        "https://api.stripe.com/v1/checkout/sessions",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {settings.stripe_secret_key}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise ValueError(f"Stripe session creation failed ({exc.code}): {detail[:250]}") from exc
+    except URLError as exc:
+        raise ValueError(f"Stripe session request failed: {exc.reason}") from exc
+
+    session_id = payload.get("id")
+    checkout_url = payload.get("url")
+    if not isinstance(session_id, str) or not isinstance(checkout_url, str):
+        raise ValueError("Stripe returned an invalid session payload")
+
+    _append_order_note(order, f"stripe_session_id:{session_id}")
+    db.commit()
+    db.refresh(order)
+    return order, session_id, checkout_url
 
 
 def process_stripe_payment_event(
@@ -270,6 +369,8 @@ def process_stripe_payment_event(
         return "failed", "Amount mismatch"
 
     if payment_status == "failed":
+        if order.status == "payment_pending":
+            order.status = "cart"
         order.payment_status = "failed"
         order.payment_method = "card"
         event.status = "processed"
@@ -285,7 +386,7 @@ def process_stripe_payment_event(
         db.commit()
         return "processed", "Order already paid"
 
-    if order.status != "cart":
+    if order.status not in {"cart", "payment_pending"}:
         event.status = "ignored"
         event.detail = f"Order not payable in status={order.status}"
         event.processed_at = datetime.now(timezone.utc)

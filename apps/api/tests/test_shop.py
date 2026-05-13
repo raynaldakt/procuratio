@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -161,3 +162,77 @@ def test_shop_reservation_and_sweep_expired_restock() -> None:
         product_after = db.get(ProductItem, product_id)
         assert product_after is not None
         assert product_after.stock_quantity == 5
+
+
+def test_shop_checkout_stripe_session_marks_order_pending(monkeypatch) -> None:
+    client = TestClient(app)
+
+    staff_email = _unique_email("staff-stripe")
+    customer_email = _unique_email("customer-stripe")
+
+    _register(client, staff_email)
+    _register(client, customer_email)
+    _set_role(staff_email, "staff")
+
+    staff_token = _login(client, staff_email)
+    customer_token = _login(client, customer_email)
+
+    product = client.post(
+        "/sales/products",
+        headers={"Authorization": f"Bearer {staff_token}"},
+        json={
+            "name": "Stripe Product",
+            "brand": "Seanergy",
+            "product_type": "care",
+            "sku": f"SKU-{uuid4().hex[:8]}",
+            "description": "stripe checkout",
+            "price_cents": 3200,
+            "stock_quantity": 6,
+        },
+    )
+    product_id = product.json()["id"]
+
+    client.post("/shop/cart", headers={"Authorization": f"Bearer {customer_token}"}, json={})
+    add_line = client.post(
+        "/shop/cart/lines",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={"product_item_id": product_id, "quantity": 1},
+    )
+    assert add_line.status_code == 200
+
+    class DummySettings:
+        stripe_secret_key = "sk_test_dummy"
+        stripe_checkout_currency = "eur"
+
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "id": "cs_test_123",
+                    "url": "https://checkout.stripe.com/c/pay/cs_test_123",
+                }
+            ).encode("utf-8")
+
+    monkeypatch.setattr("app.services.shop.get_settings", lambda: DummySettings())
+    monkeypatch.setattr("app.services.shop.urlopen", lambda req, timeout=20: DummyResponse())
+
+    response = client.post(
+        "/shop/cart/checkout/stripe-session",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={
+            "success_url": "https://example.com/success",
+            "cancel_url": "https://example.com/cancel",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["session_id"] == "cs_test_123"
+    assert body["checkout_url"].startswith("https://checkout.stripe.com/")
+    assert body["order"]["status"] == "payment_pending"
+    assert body["order"]["payment_status"] == "pending"
