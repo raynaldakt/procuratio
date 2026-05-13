@@ -85,20 +85,27 @@ services:
   notification-service:
     image: python:3.12-slim
     working_dir: /app
-    command: sh -c "echo 'Notification service scaffold pending' && sleep infinity"
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python worker.py"
     environment:
       APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://procuratio:procuratio_dev@postgres:5432/procuratio}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      NOTIFICATION_DRY_RUN: ${NOTIFICATION_DRY_RUN:-true}
+      NOTIFICATION_POLL_INTERVAL_SEC: ${NOTIFICATION_POLL_INTERVAL_SEC:-5}
+      NOTIFICATION_BATCH_SIZE: ${NOTIFICATION_BATCH_SIZE:-20}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM: ${TWILIO_FROM:-}
     volumes:
       - ./services/notification-service:/app
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
