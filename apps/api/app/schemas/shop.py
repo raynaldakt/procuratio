@@ -75,3 +75,17 @@ class ShopCheckoutPurchaseResponse(BaseModel):
 
 class ReservationSweepResponse(BaseModel):
     expired_count: int
+
+
+class StripeWebhookEventIn(BaseModel):
+    event_id: str = Field(min_length=1, max_length=255)
+    event_type: str = Field(min_length=1, max_length=120)
+    order_id: int | None = None
+    payment_status: Literal["paid", "failed"]
+    provider_payment_reference: str | None = Field(default=None, max_length=255)
+    amount_total_cents: int | None = Field(default=None, ge=0)
+
+
+class StripeWebhookEventProcessResponse(BaseModel):
+    result: Literal["processed", "duplicate", "ignored", "failed"]
+    detail: str

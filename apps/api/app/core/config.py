@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_expires_minutes: int = 30
     jwt_refresh_expires_minutes: int = 60 * 24 * 7
+    payment_webhook_token: str = "change_me"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
