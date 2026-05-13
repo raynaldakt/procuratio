@@ -2,10 +2,12 @@ from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.db.session import engine
+from app.models.payment_webhook_event import PaymentWebhookEvent
 from app.models.product_item import ProductItem
 from app.models.product_reservation import ProductReservation
 from app.models.shop_order import ShopOrder
@@ -29,7 +31,12 @@ def ensure_shop_schema() -> None:
             return
         Base.metadata.create_all(
             bind=engine,
-            tables=[ShopOrder.__table__, ShopOrderLine.__table__, ProductReservation.__table__],
+            tables=[
+                ShopOrder.__table__,
+                ShopOrderLine.__table__,
+                ProductReservation.__table__,
+                PaymentWebhookEvent.__table__,
+            ],
             checkfirst=True,
         )
         _schema_ready = True
@@ -173,6 +180,129 @@ def checkout_purchase(db: Session, order: ShopOrder, payment_method: str) -> tup
         loyalty_points = max(0, txn.points_delta)
 
     return order, loyalty_points
+
+
+def _apply_paid_transition(db: Session, order: ShopOrder, payment_method: str, payment_reference: str | None) -> int:
+    lines = _order_lines(db, order.id)
+    if not lines:
+        raise ValueError("Cart is empty")
+
+    for line in lines:
+        product = db.get(ProductItem, line.product_item_id)
+        if product is None or not product.is_active:
+            raise ValueError("Product not found")
+        if product.stock_quantity < line.quantity:
+            raise ValueError("Insufficient stock")
+
+    for line in lines:
+        product = db.get(ProductItem, line.product_item_id)
+        if product is None:
+            continue
+        product.stock_quantity -= line.quantity
+
+    _recompute_order_totals(db, order)
+    order.status = "paid"
+    order.fulfillment_mode = "purchase"
+    order.payment_status = "paid"
+    if payment_reference:
+        order.notes = (order.notes or "") + f"\npayment_ref:{payment_reference}"
+        order.notes = order.notes.strip()[:500]
+    order.payment_method = payment_method
+    order.confirmed_at = datetime.now(timezone.utc)
+
+    loyalty_points = 0
+    if order.total_cents > 0:
+        txn = register_purchase(
+            db=db,
+            user_id=order.customer_user_id,
+            amount_spent_cents=order.total_cents,
+            description=f"Shop order #{order.id}",
+            created_by_user_id=order.customer_user_id,
+        )
+        loyalty_points = max(0, txn.points_delta)
+
+    return loyalty_points
+
+
+def process_stripe_payment_event(
+    db: Session,
+    *,
+    event_id: str,
+    event_type: str,
+    order_id: int | None,
+    payment_status: str,
+    provider_payment_reference: str | None,
+    amount_total_cents: int | None,
+) -> tuple[str, str]:
+    ensure_shop_schema()
+    if payment_status not in {"paid", "failed"}:
+        return "ignored", "Unsupported payment status"
+    if order_id is None:
+        return "ignored", "Missing order_id"
+
+    event = PaymentWebhookEvent(
+        provider="stripe",
+        event_id=event_id,
+        event_type=event_type,
+        order_id=order_id,
+        status="received",
+    )
+    db.add(event)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return "duplicate", "Event already processed"
+
+    order = db.get(ShopOrder, order_id)
+    if order is None:
+        event.status = "ignored"
+        event.detail = "Order not found"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "ignored", "Order not found"
+
+    if amount_total_cents is not None and amount_total_cents != order.total_cents:
+        event.status = "failed"
+        event.detail = "Amount mismatch"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "failed", "Amount mismatch"
+
+    if payment_status == "failed":
+        order.payment_status = "failed"
+        order.payment_method = "card"
+        event.status = "processed"
+        event.detail = "Payment failure recorded"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "processed", "Payment failure recorded"
+
+    if order.status == "paid" and order.payment_status == "paid":
+        event.status = "processed"
+        event.detail = "Order already paid"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "processed", "Order already paid"
+
+    if order.status != "cart":
+        event.status = "ignored"
+        event.detail = f"Order not payable in status={order.status}"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "ignored", event.detail
+
+    _apply_paid_transition(
+        db,
+        order,
+        payment_method="card",
+        payment_reference=provider_payment_reference,
+    )
+    event.status = "processed"
+    event.detail = "Order marked as paid"
+    event.processed_at = datetime.now(timezone.utc)
+    db.commit()
+    return "processed", "Order marked as paid"
 
 
 def checkout_reservation(db: Session, order: ShopOrder, expires_in_hours: int) -> tuple[ShopOrder, list[ProductReservation]]:

@@ -6,6 +6,7 @@ from app.models.gift_voucher_redemption import GiftVoucherRedemption
 from app.models.loyalty_transaction import LoyaltyTransaction
 from app.models.marketing_campaign import MarketingCampaign
 from app.models.notification_message import NotificationMessage
+from app.models.payment_webhook_event import PaymentWebhookEvent
 from app.models.product_item import ProductItem
 from app.models.product_reservation import ProductReservation
 from app.models.sale_ticket import SaleTicket
@@ -23,6 +24,7 @@ __all__ = [
     "LoyaltyTransaction",
     "MarketingCampaign",
     "NotificationMessage",
+    "PaymentWebhookEvent",
     "ProductItem",
     "ShopOrder",
     "ShopOrderLine",

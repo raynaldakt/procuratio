@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user, require_roles
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.sales import ProductPublic
@@ -15,6 +18,8 @@ from app.schemas.shop import (
     ShopCheckoutReserve,
     ShopOrderDetails,
     ShopOrderPublic,
+    StripeWebhookEventIn,
+    StripeWebhookEventProcessResponse,
 )
 from app.services.sales import search_products
 from app.services.shop import (
@@ -28,11 +33,13 @@ from app.services.shop import (
     get_or_create_cart,
     list_customer_orders,
     list_customer_reservations,
+    process_stripe_payment_event,
     remove_line_from_cart,
     sweep_expired_reservations,
 )
 
 router = APIRouter(prefix="/shop", tags=["shop"])
+settings = get_settings()
 
 
 @router.get("/products", response_model=list[ProductPublic])
@@ -181,3 +188,24 @@ def sweep_expired(
 ) -> ReservationSweepResponse:
     count = sweep_expired_reservations(db)
     return ReservationSweepResponse(expired_count=count)
+
+
+@router.post("/internal/payments/stripe/event", response_model=StripeWebhookEventProcessResponse)
+def process_stripe_event(
+    payload: StripeWebhookEventIn,
+    db: Session = Depends(get_db),
+    webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+) -> StripeWebhookEventProcessResponse:
+    if webhook_token is None or not hmac.compare_digest(webhook_token, settings.payment_webhook_token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal webhook token")
+
+    result, detail = process_stripe_payment_event(
+        db=db,
+        event_id=payload.event_id,
+        event_type=payload.event_type,
+        order_id=payload.order_id,
+        payment_status=payload.payment_status,
+        provider_payment_reference=payload.provider_payment_reference,
+        amount_total_cents=payload.amount_total_cents,
+    )
+    return StripeWebhookEventProcessResponse(result=result, detail=detail)
