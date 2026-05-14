@@ -2,6 +2,9 @@ const state = {
   token: "",
   cart: null,
   products: [],
+  services: [],
+  employees: [],
+  slots: [],
 };
 
 const apiBaseInput = document.getElementById("apiBase");
@@ -15,12 +18,29 @@ const successUrlInput = document.getElementById("successUrl");
 const cancelUrlInput = document.getElementById("cancelUrl");
 const checkoutState = document.getElementById("checkoutState");
 const checkoutLink = document.getElementById("checkoutLink");
+const serviceSelect = document.getElementById("serviceSelect");
+const employeeSelect = document.getElementById("employeeSelect");
+const appointmentDateInput = document.getElementById("appointmentDate");
+const appointmentCatalogState = document.getElementById("appointmentCatalogState");
+const slotSelect = document.getElementById("slotSelect");
+const appointmentNotesInput = document.getElementById("appointmentNotes");
+const payInStoreInput = document.getElementById("payInStore");
+const bookState = document.getElementById("bookState");
+const bookPreview = document.getElementById("bookPreview");
+const refreshAppointmentsBtn = document.getElementById("refreshAppointmentsBtn");
+const appointmentState = document.getElementById("appointmentState");
+const appointmentPreview = document.getElementById("appointmentPreview");
+const cancelAppointmentIdInput = document.getElementById("cancelAppointmentId");
+const cancelAppointmentBtn = document.getElementById("cancelAppointmentBtn");
 
 const loginBtn = document.getElementById("loginBtn");
 const loadProductsBtn = document.getElementById("loadProductsBtn");
 const addToCartBtn = document.getElementById("addToCartBtn");
 const refreshCartBtn = document.getElementById("refreshCartBtn");
 const stripeCheckoutBtn = document.getElementById("stripeCheckoutBtn");
+const loadAppointmentCatalogBtn = document.getElementById("loadAppointmentCatalogBtn");
+const searchAvailabilityBtn = document.getElementById("searchAvailabilityBtn");
+const bookAppointmentBtn = document.getElementById("bookAppointmentBtn");
 
 function getApiBase() {
   return apiBaseInput.value.trim().replace(/\/$/, "");
@@ -66,6 +86,40 @@ function renderProducts() {
 function renderCart(payload) {
   state.cart = payload;
   cartPreview.textContent = JSON.stringify(payload, null, 2);
+}
+
+function setDefaultAppointmentDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  appointmentDateInput.value = tomorrow.toISOString().slice(0, 10);
+}
+
+function renderAppointmentCatalog() {
+  serviceSelect.innerHTML = "";
+  for (const s of state.services) {
+    const option = document.createElement("option");
+    option.value = String(s.id);
+    option.textContent = `${s.name} (${s.duration_minutes} min)`;
+    serviceSelect.appendChild(option);
+  }
+
+  employeeSelect.innerHTML = "";
+  for (const emp of state.employees) {
+    const option = document.createElement("option");
+    option.value = String(emp.user_id);
+    option.textContent = `Employee #${emp.user_id}`;
+    employeeSelect.appendChild(option);
+  }
+}
+
+function renderSlots() {
+  slotSelect.innerHTML = "";
+  for (const slot of state.slots) {
+    const option = document.createElement("option");
+    option.value = slot.start_at;
+    option.textContent = new Date(slot.start_at).toLocaleString();
+    slotSelect.appendChild(option);
+  }
 }
 
 async function doLogin() {
@@ -150,8 +204,110 @@ async function createStripeSession() {
   }
 }
 
+async function loadAppointmentCatalog() {
+  appointmentCatalogState.textContent = "Loading services and employees...";
+  try {
+    const [services, employees] = await Promise.all([
+      api("/appointments/services", { method: "GET" }),
+      api("/appointments/employees", { method: "GET" }),
+    ]);
+    state.services = services;
+    state.employees = employees;
+    renderAppointmentCatalog();
+    if (services.length === 0) {
+      appointmentCatalogState.textContent = "No active services found. Create one from staff/backoffice.";
+      return;
+    }
+    if (employees.length === 0) {
+      appointmentCatalogState.textContent = "No bookable employees found. Configure employee profiles.";
+      return;
+    }
+    appointmentCatalogState.textContent = `Loaded ${services.length} service(s), ${employees.length} employee(s)`;
+  } catch (err) {
+    appointmentCatalogState.textContent = `Catalog load failed: ${err.message}`;
+  }
+}
+
+async function searchAvailability() {
+  appointmentCatalogState.textContent = "Searching availability...";
+  try {
+    const serviceId = Number(serviceSelect.value);
+    const employeeId = Number(employeeSelect.value);
+    const targetDate = appointmentDateInput.value;
+    if (!serviceId || !employeeId || !targetDate) {
+      throw new Error("Pick service, employee and date");
+    }
+
+    const query = new URLSearchParams({
+      service_offering_id: String(serviceId),
+      employee_user_id: String(employeeId),
+      target_date: targetDate,
+    });
+    const slots = await api(`/appointments/availability?${query.toString()}`, { method: "GET" });
+    state.slots = slots;
+    renderSlots();
+    appointmentCatalogState.textContent = `Found ${slots.length} slot(s)`;
+  } catch (err) {
+    appointmentCatalogState.textContent = `Availability failed: ${err.message}`;
+  }
+}
+
+async function bookAppointment() {
+  bookState.textContent = "Booking appointment...";
+  try {
+    const payload = await api("/appointments/book", {
+      method: "POST",
+      body: JSON.stringify({
+        service_offering_id: Number(serviceSelect.value),
+        employee_user_id: Number(employeeSelect.value),
+        start_at: slotSelect.value,
+        notes: appointmentNotesInput.value.trim() || null,
+        pay_in_store: payInStoreInput.checked,
+      }),
+    });
+    bookState.textContent = `Appointment #${payload.id} booked`;
+    bookPreview.textContent = JSON.stringify(payload, null, 2);
+    cancelAppointmentIdInput.value = String(payload.id);
+  } catch (err) {
+    bookState.textContent = `Booking failed: ${err.message}`;
+  }
+}
+
+async function refreshAppointments() {
+  appointmentState.textContent = "Loading appointments...";
+  try {
+    const rows = await api("/appointments/me", { method: "GET" });
+    appointmentState.textContent = `Loaded ${rows.length} appointment(s)`;
+    appointmentPreview.textContent = JSON.stringify(rows, null, 2);
+  } catch (err) {
+    appointmentState.textContent = `Load failed: ${err.message}`;
+  }
+}
+
+async function cancelAppointment() {
+  appointmentState.textContent = "Cancelling appointment...";
+  try {
+    const id = Number(cancelAppointmentIdInput.value);
+    if (!id) {
+      throw new Error("Provide appointment ID");
+    }
+    const payload = await api(`/appointments/${id}/cancel`, { method: "POST", body: JSON.stringify({}) });
+    appointmentState.textContent = `Appointment #${id} cancelled`;
+    appointmentPreview.textContent = JSON.stringify(payload, null, 2);
+  } catch (err) {
+    appointmentState.textContent = `Cancel failed: ${err.message}`;
+  }
+}
+
 loginBtn.addEventListener("click", doLogin);
 loadProductsBtn.addEventListener("click", loadProducts);
 addToCartBtn.addEventListener("click", addToCart);
 refreshCartBtn.addEventListener("click", refreshCart);
 stripeCheckoutBtn.addEventListener("click", createStripeSession);
+loadAppointmentCatalogBtn.addEventListener("click", loadAppointmentCatalog);
+searchAvailabilityBtn.addEventListener("click", searchAvailability);
+bookAppointmentBtn.addEventListener("click", bookAppointment);
+refreshAppointmentsBtn.addEventListener("click", refreshAppointments);
+cancelAppointmentBtn.addEventListener("click", cancelAppointment);
+
+setDefaultAppointmentDate();

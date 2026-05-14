@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Procuratio Customer Checkout</title>
+    <title>Procuratio Customer Space</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,9 +16,9 @@
     <main class="page">
       <section class="panel hero">
         <p class="eyebrow">Procuratio</p>
-        <h1>Customer Stripe Checkout</h1>
+        <h1>Customer Space: Shop + Appointments</h1>
         <p class="subtitle">
-          Login, add a product to your cart, and launch a real Stripe Checkout Session.
+          Manage purchases and online appointments from one place.
         </p>
       </section>
 
@@ -70,6 +70,56 @@
           <button id="stripeCheckoutBtn" class="accent">Create Stripe Session</button>
           <p id="checkoutState" class="hint">Waiting</p>
           <a id="checkoutLink" target="_blank" rel="noopener noreferrer"></a>
+        </article>
+
+        <article class="card">
+          <h2>4. Appointment Setup</h2>
+          <button id="loadAppointmentCatalogBtn">Load Services & Employees</button>
+          <label>
+            Service
+            <select id="serviceSelect"></select>
+          </label>
+          <label>
+            Employee
+            <select id="employeeSelect"></select>
+          </label>
+          <label>
+            Date
+            <input id="appointmentDate" type="date" />
+          </label>
+          <button id="searchAvailabilityBtn" class="ghost">Search Availability</button>
+          <p id="appointmentCatalogState" class="hint">Waiting</p>
+        </article>
+
+        <article class="card">
+          <h2>5. Book Appointment</h2>
+          <label>
+            Available Slot
+            <select id="slotSelect"></select>
+          </label>
+          <label>
+            Notes
+            <input id="appointmentNotes" placeholder="Optional note" />
+          </label>
+          <label class="inline">
+            <input id="payInStore" type="checkbox" checked />
+            <span>Pay in store</span>
+          </label>
+          <button id="bookAppointmentBtn" class="accent">Book Appointment</button>
+          <p id="bookState" class="hint">No booking yet</p>
+          <pre id="bookPreview">No booking payload</pre>
+        </article>
+
+        <article class="card">
+          <h2>6. My Appointments</h2>
+          <button id="refreshAppointmentsBtn">Refresh My Appointments</button>
+          <label>
+            Appointment ID to cancel
+            <input id="cancelAppointmentId" type="number" min="1" />
+          </label>
+          <button id="cancelAppointmentBtn" class="ghost">Cancel Appointment</button>
+          <p id="appointmentState" class="hint">Waiting</p>
+          <pre id="appointmentPreview">No appointments loaded</pre>
         </article>
       </section>
     </main>

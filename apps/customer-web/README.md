@@ -6,6 +6,10 @@ Static customer interface for:
 - product selection
 - cart composition
 - Stripe Checkout Session creation
+- appointment catalog loading (services + employees)
+- availability search
+- appointment booking and cancellation
+- appointment history preview
 
 ## Run with Docker
 
