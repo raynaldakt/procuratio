@@ -59,6 +59,9 @@ Run these checks end-to-end:
 - online shop: cart + purchase + reservation + expiration sweep
 - stats: overview + timeseries data visible
 
+Recommended one-command validation before final packaging:
+- `./scripts/smoke_test.sh`
+
 ## 5. Security and quality checks before final push
 
 Required:

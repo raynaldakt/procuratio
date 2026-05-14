@@ -34,6 +34,20 @@ ERP/CRM web for Seanergy beauty and hairdressing salons.
 - Separation between public APIs and staff APIs
 - Containerized local and production environments
 
+## Smoke test (recommended before every PR)
+
+Run a full API smoke flow (auth, shop purchase, appointments, campaigns, stats):
+
+```bash
+./scripts/smoke_test.sh
+```
+
+Quick API-only run (if services are already up):
+
+```bash
+python3 scripts/smoke_test.py
+```
+
 ## Next milestones
 
 1. Scaffold API and both frontend apps

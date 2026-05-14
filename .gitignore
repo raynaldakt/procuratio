@@ -41,3 +41,6 @@ tmp/
 *.key
 *.crt
 *.p12
+
+# Local sqlite artifacts
+*.db
