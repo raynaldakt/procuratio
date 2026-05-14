@@ -15,10 +15,13 @@ from app.db.session import engine
 from app.models.appointment import Appointment
 from app.models.appointment_payment_state import AppointmentPaymentState
 from app.models.appointment_payment_webhook_event import AppointmentPaymentWebhookEvent
+from app.models.customer_profile import CustomerProfile
 from app.models.employee_profile import EmployeeProfile
+from app.models.notification_message import NotificationMessage
 from app.models.service_offering import ServiceOffering
 from app.models.user import User
 from app.services.auth import ensure_auth_schema
+from app.services.campaigns import ensure_campaigns_schema
 
 _schema_lock = Lock()
 _schema_ready = False
@@ -31,6 +34,7 @@ def ensure_appointments_schema() -> None:
         return
 
     ensure_auth_schema()
+    ensure_campaigns_schema()
     with _schema_lock:
         if _schema_ready:
             return
@@ -123,6 +127,68 @@ def _validate_datetime(start_at: datetime) -> datetime:
     return start_at.astimezone(timezone.utc)
 
 
+def _compute_reminder_schedule(start_at_utc: datetime) -> list[datetime]:
+    now = datetime.now(timezone.utc)
+    candidates = [
+        start_at_utc - timedelta(hours=24),
+        start_at_utc - timedelta(hours=2),
+    ]
+    schedule = [dt for dt in candidates if dt > now + timedelta(minutes=1)]
+    if schedule:
+        return schedule
+
+    # Fallback for near-future bookings so we still send at least one reminder.
+    if start_at_utc > now + timedelta(minutes=10):
+        return [max(now + timedelta(minutes=1), start_at_utc - timedelta(minutes=30))]
+
+    return []
+
+
+def _queue_appointment_reminders(
+    db: Session,
+    *,
+    appointment: Appointment,
+    service: ServiceOffering,
+    customer: User,
+) -> None:
+    profile = db.get(CustomerProfile, appointment.customer_user_id)
+    reminder_times = _compute_reminder_schedule(appointment.start_at)
+    if not reminder_times:
+        return
+
+    channels: list[str] = []
+    email_opt_in = True if profile is None else bool(profile.marketing_email_opt_in)
+    sms_opt_in = bool(profile and profile.marketing_sms_opt_in and profile.phone)
+    if email_opt_in and customer.email:
+        channels.append("email")
+    if sms_opt_in:
+        channels.append("sms")
+
+    if not channels:
+        return
+
+    start_str = appointment.start_at.strftime("%Y-%m-%d %H:%M UTC")
+    body = (
+        f"Reminder: your appointment for '{service.name}' is scheduled on {start_str}. "
+        "If you need to cancel or reschedule, please contact the salon."
+    )
+
+    for scheduled_for in reminder_times:
+        for channel in channels:
+            db.add(
+                NotificationMessage(
+                    campaign_id=None,
+                    user_id=appointment.customer_user_id,
+                    channel=channel,
+                    kind="appointment_reminder",
+                    subject=f"Appointment Reminder - {service.name}" if channel == "email" else None,
+                    message=body,
+                    status="pending",
+                    scheduled_for=scheduled_for,
+                )
+            )
+
+
 def _get_or_create_payment_state(db: Session, appointment_id: int, amount_cents: int) -> AppointmentPaymentState:
     row = db.get(AppointmentPaymentState, appointment_id)
     if row is None:
@@ -197,6 +263,8 @@ def create_appointment(
         created_by_user_id=created_by_user_id,
     )
     db.add(appt)
+    db.flush()
+    _queue_appointment_reminders(db, appointment=appt, service=service, customer=customer)
     db.commit()
     db.refresh(appt)
     return appt
