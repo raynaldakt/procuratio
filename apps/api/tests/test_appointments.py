@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
+from app.models.notification_message import NotificationMessage
 from app.models.user import User
 
 
@@ -359,3 +360,60 @@ def test_internal_appointment_payment_webhook_idempotent() -> None:
     )
     assert second.status_code == 200
     assert second.json()["result"] == "duplicate"
+
+
+def test_booking_queues_automatic_appointment_reminders() -> None:
+    client = TestClient(app)
+    customer_email = _unique_email("cust-reminder")
+    staff_email = _unique_email("staff-reminder")
+    manager_email = _unique_email("manager-reminder")
+
+    _register(client, customer_email)
+    _register(client, staff_email)
+    _register(client, manager_email)
+
+    staff_id = _set_role(staff_email, "staff")
+    _set_role(manager_email, "manager")
+
+    customer_token = _login_token(client, customer_email)
+    staff_token = _login_token(client, staff_email)
+    manager_token = _login_token(client, manager_email)
+
+    service = client.post(
+        "/appointments/services",
+        headers={"Authorization": f"Bearer {staff_token}"},
+        json={"name": "Reminder Test Service", "description": "Reminder flow", "duration_minutes": 30, "price_cents": 2100},
+    )
+    service_id = service.json()["id"]
+
+    client.put(
+        f"/appointments/employees/{staff_id}/profile",
+        headers={"Authorization": f"Bearer {manager_token}"},
+        json={"is_bookable": True, "workday_start_minute": 540, "workday_end_minute": 1080, "slot_step_minutes": 15},
+    )
+
+    booking = client.post(
+        "/appointments/book",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={
+            "service_offering_id": service_id,
+            "start_at": _next_day_at_utc(16, 0).isoformat(),
+            "employee_user_id": staff_id,
+            "pay_in_store": True,
+        },
+    )
+    assert booking.status_code == 201
+    customer_id = booking.json()["customer_user_id"]
+
+    with SessionLocal() as db:
+        stmt = (
+            select(NotificationMessage)
+            .where(
+                NotificationMessage.user_id == customer_id,
+                NotificationMessage.kind == "appointment_reminder",
+            )
+            .order_by(NotificationMessage.created_at.desc())
+        )
+        rows = list(db.scalars(stmt).all())
+        assert len(rows) >= 1
+        assert all(row.channel in {"email", "sms"} for row in rows)
