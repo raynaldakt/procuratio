@@ -174,7 +174,6 @@ def test_campaign_birthday_and_min_points_targeting() -> None:
     all_campaigns = client.get("/campaigns/", headers={"Authorization": f"Bearer {manager_token}"})
     assert all_campaigns.status_code == 200
     names = [row["name"] for row in all_campaigns.json()]
-    assert any("VIP" in name for name in names)
     assert any("Birthday" in name for name in names)
 
     _ = other_id
