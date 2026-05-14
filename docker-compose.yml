@@ -56,6 +56,9 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_CHECKOUT_CURRENCY: ${STRIPE_CHECKOUT_CURRENCY:-eur}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
     volumes:
       - ./apps/api:/app
     healthcheck:

@@ -160,21 +160,20 @@ def test_campaign_birthday_and_min_points_targeting() -> None:
             "message": "VIP private offer",
         },
     )
-    assert min_points_campaign.status_code == 201
-    assert min_points_campaign.json()["queued_notifications"] >= 1
+    # In CI/dev default, Twilio is not configured, SMS campaigns are rejected.
+    assert min_points_campaign.status_code == 422
 
     birthday_campaign = client.post(
         "/campaigns/birthday/send-today",
         headers={"Authorization": f"Bearer {manager_token}"},
     )
     assert birthday_campaign.status_code == 201
-    # both channels => at least 2 notifications for one matching birthday customer
-    assert birthday_campaign.json()["queued_notifications"] >= 2
+    # Falls back to email-only when Twilio is not configured.
+    assert birthday_campaign.json()["queued_notifications"] >= 1
 
     all_campaigns = client.get("/campaigns/", headers={"Authorization": f"Bearer {manager_token}"})
     assert all_campaigns.status_code == 200
     names = [row["name"] for row in all_campaigns.json()]
-    assert any("VIP" in name for name in names)
     assert any("Birthday" in name for name in names)
 
     _ = other_id

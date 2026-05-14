@@ -379,6 +379,15 @@ def test_booking_queues_automatic_appointment_reminders() -> None:
     staff_token = _login_token(client, staff_email)
     manager_token = _login_token(client, manager_email)
 
+    # Customer opts in SMS with phone, but Twilio is not configured in tests:
+    # queue must remain email-only and avoid SMS failures.
+    patch_profile = client.patch(
+        "/customers/me/profile",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={"marketing_sms_opt_in": True, "phone": "+15550001111"},
+    )
+    assert patch_profile.status_code == 200
+
     service = client.post(
         "/appointments/services",
         headers={"Authorization": f"Bearer {staff_token}"},
@@ -416,4 +425,4 @@ def test_booking_queues_automatic_appointment_reminders() -> None:
         )
         rows = list(db.scalars(stmt).all())
         assert len(rows) >= 1
-        assert all(row.channel in {"email", "sms"} for row in rows)
+        assert all(row.channel == "email" for row in rows)
