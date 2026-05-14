@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Procuratio Customer Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel hero">
+        <p class="eyebrow">Procuratio</p>
+        <h1>Customer Stripe Checkout</h1>
+        <p class="subtitle">
+          Login, add a product to your cart, and launch a real Stripe Checkout Session.
+        </p>
+      </section>
+
+      <section class="panel grid">
+        <article class="card">
+          <h2>1. API & Login</h2>
+          <label>
+            API Base URL
+            <input id="apiBase" value="http://localhost:8000" />
+          </label>
+          <label>
+            Email
+            <input id="email" value="customer@procuratio.demo" />
+          </label>
+          <label>
+            Password
+            <input id="password" type="password" value="Customer123!" />
+          </label>
+          <button id="loginBtn">Login</button>
+          <p id="authState" class="hint">Not authenticated</p>
+        </article>
+
+        <article class="card">
+          <h2>2. Build Cart</h2>
+          <button id="loadProductsBtn">Load Products</button>
+          <label>
+            Product
+            <select id="productSelect"></select>
+          </label>
+          <label>
+            Quantity
+            <input id="quantity" type="number" min="1" value="1" />
+          </label>
+          <button id="addToCartBtn">Add To Cart</button>
+          <button id="refreshCartBtn" class="ghost">Refresh Cart</button>
+          <pre id="cartPreview">Cart empty</pre>
+        </article>
+
+        <article class="card">
+          <h2>3. Pay With Stripe</h2>
+          <label>
+            Success URL
+            <input id="successUrl" value="https://example.com/success" />
+          </label>
+          <label>
+            Cancel URL
+            <input id="cancelUrl" value="https://example.com/cancel" />
+          </label>
+          <button id="stripeCheckoutBtn" class="accent">Create Stripe Session</button>
+          <p id="checkoutState" class="hint">Waiting</p>
+          <a id="checkoutLink" target="_blank" rel="noopener noreferrer"></a>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

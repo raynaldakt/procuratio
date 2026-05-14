@@ -55,6 +55,7 @@ services:
       PAYMENT_WEBHOOK_TOKEN: ${PAYMENT_WEBHOOK_TOKEN:-change_me}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_CHECKOUT_CURRENCY: ${STRIPE_CHECKOUT_CURRENCY:-eur}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - ./apps/api:/app
     healthcheck:
@@ -147,11 +148,11 @@ services:
       - api
 
   customer-web:
-    image: node:22
-    working_dir: /app
-    command: sh -c "echo 'Customer web scaffold pending' && sleep infinity"
+    image: nginx:stable-alpine
+    ports:
+      - "${CUSTOMER_WEB_PORT:-3000}:80"
     volumes:
-      - ./apps/customer-web:/app
+      - ./apps/customer-web:/usr/share/nginx/html:ro
     depends_on:
       - api
 
