@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Procuratio Backoffice Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=DM+Serif+Display&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Procuratio</p>
+        <h1>Backoffice Dashboard</h1>
+        <p>Operations pulse for sales, appointments and notification delivery.</p>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Access</h2>
+          <label>API Base URL <input id="apiBase" value="http://localhost:8000" /></label>
+          <label>Email <input id="email" value="staff@procuratio.demo" /></label>
+          <label>Password <input id="password" type="password" value="Staff123!" /></label>
+          <button id="loginBtn">Login</button>
+          <button id="refreshAllBtn">Refresh All</button>
+          <p id="authState" class="hint">Not authenticated</p>
+        </article>
+
+        <article class="card">
+          <h2>KPI Filters</h2>
+          <label>Period
+            <select id="statsPeriod">
+              <option value="week">week</option>
+              <option value="month" selected>month</option>
+              <option value="year">year</option>
+            </select>
+          </label>
+          <button id="loadStatsBtn">Load KPI</button>
+          <p class="hint">KPIs below and top items use this period.</p>
+        </article>
+
+        <article class="card">
+          <h2>Notifications Queue</h2>
+          <label>Status filter
+            <select id="notifStatus">
+              <option value="">all</option>
+              <option value="pending" selected>pending</option>
+              <option value="processing">processing</option>
+              <option value="sent">sent</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+          <button id="loadNotificationsBtn">Load Queue</button>
+          <p class="hint" id="notifMeta">No notifications loaded</p>
+        </article>
+      </section>
+
+      <section class="kpi-grid">
+        <article class="kpi-card"><p>Net Revenue</p><h3 id="kpiNetRevenue">-</h3></article>
+        <article class="kpi-card"><p>Gross Revenue</p><h3 id="kpiGrossRevenue">-</h3></article>
+        <article class="kpi-card"><p>Tickets Paid</p><h3 id="kpiTicketsPaid">-</h3></article>
+        <article class="kpi-card"><p>Appointments</p><h3 id="kpiAppointments">-</h3></article>
+        <article class="kpi-card"><p>New Customers</p><h3 id="kpiNewCustomers">-</h3></article>
+        <article class="kpi-card"><p>Loyalty Earned</p><h3 id="kpiLoyalty">-</h3></article>
+      </section>
+
+      <section class="grid tables">
+        <article class="card">
+          <h2>Recent POS Tickets</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Discount</th>
+                <th>Payment</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody id="ticketsBody">
+              <tr><td colspan="5">No data</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="card">
+          <h2>My Related Appointments</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Customer</th>
+                <th>Employee</th>
+                <th>Start</th>
+              </tr>
+            </thead>
+            <tbody id="appointmentsBody">
+              <tr><td colspan="5">No data</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="card">
+          <h2>Notification Queue</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Channel</th>
+                <th>Kind</th>
+                <th>Status</th>
+                <th>Scheduled</th>
+              </tr>
+            </thead>
+            <tbody id="notifBody">
+              <tr><td colspan="5">No data</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="grid tables">
+        <article class="card">
+          <h2>Top Products</h2>
+          <pre id="topProductsPreview">No data</pre>
+        </article>
+        <article class="card">
+          <h2>Top Services</h2>
+          <pre id="topServicesPreview">No data</pre>
+        </article>
+        <article class="card">
+          <h2>Raw Stats JSON</h2>
+          <pre id="statsPreview">No stats loaded</pre>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

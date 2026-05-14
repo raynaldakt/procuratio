@@ -55,7 +55,7 @@ services:
       PAYMENT_WEBHOOK_TOKEN: ${PAYMENT_WEBHOOK_TOKEN:-change_me}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_CHECKOUT_CURRENCY: ${STRIPE_CHECKOUT_CURRENCY:-eur}
-      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM: ${TWILIO_FROM:-}
@@ -142,11 +142,11 @@ services:
         condition: service_healthy
 
   backoffice-web:
-    image: node:22
-    working_dir: /app
-    command: sh -c "echo 'Backoffice web scaffold pending' && sleep infinity"
+    image: nginx:stable-alpine
+    ports:
+      - "${BACKOFFICE_WEB_PORT:-3001}:80"
     volumes:
-      - ./apps/backoffice-web:/app
+      - ./apps/backoffice-web:/usr/share/nginx/html:ro
     depends_on:
       - api
 
