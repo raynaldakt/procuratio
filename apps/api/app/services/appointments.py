@@ -1,12 +1,20 @@
 from datetime import date, datetime, time, timedelta, timezone
+import json
 from threading import Lock
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
 from app.models.appointment import Appointment
+from app.models.appointment_payment_state import AppointmentPaymentState
+from app.models.appointment_payment_webhook_event import AppointmentPaymentWebhookEvent
 from app.models.employee_profile import EmployeeProfile
 from app.models.service_offering import ServiceOffering
 from app.models.user import User
@@ -28,7 +36,13 @@ def ensure_appointments_schema() -> None:
             return
         Base.metadata.create_all(
             bind=engine,
-            tables=[ServiceOffering.__table__, EmployeeProfile.__table__, Appointment.__table__],
+            tables=[
+                ServiceOffering.__table__,
+                EmployeeProfile.__table__,
+                Appointment.__table__,
+                AppointmentPaymentState.__table__,
+                AppointmentPaymentWebhookEvent.__table__,
+            ],
             checkfirst=True,
         )
         _schema_ready = True
@@ -109,6 +123,22 @@ def _validate_datetime(start_at: datetime) -> datetime:
     return start_at.astimezone(timezone.utc)
 
 
+def _get_or_create_payment_state(db: Session, appointment_id: int, amount_cents: int) -> AppointmentPaymentState:
+    row = db.get(AppointmentPaymentState, appointment_id)
+    if row is None:
+        row = AppointmentPaymentState(
+            appointment_id=appointment_id,
+            amount_cents=amount_cents,
+            status="unpaid",
+        )
+        db.add(row)
+        db.flush()
+        return row
+
+    row.amount_cents = amount_cents
+    return row
+
+
 def _has_overlap(db: Session, user_field, user_id: int, start_at: datetime, end_at: datetime) -> bool:
     stmt = select(Appointment.id).where(
         user_field == user_id,
@@ -170,6 +200,182 @@ def create_appointment(
     db.commit()
     db.refresh(appt)
     return appt
+
+
+def create_appointment_stripe_checkout_session(
+    db: Session,
+    *,
+    appointment_id: int,
+    customer_user_id: int,
+    success_url: str,
+    cancel_url: str,
+) -> tuple[Appointment, str, str]:
+    ensure_appointments_schema()
+    settings = get_settings()
+
+    if not settings.stripe_secret_key:
+        raise ValueError("Stripe is not configured (missing STRIPE_SECRET_KEY)")
+
+    appt = db.get(Appointment, appointment_id)
+    if appt is None:
+        raise ValueError("Appointment not found")
+    if appt.customer_user_id != customer_user_id:
+        raise ValueError("Appointment not found")
+    if appt.status in {"cancelled", "completed", "no_show"}:
+        raise ValueError("Appointment is not payable")
+
+    service = db.get(ServiceOffering, appt.service_offering_id)
+    if service is None or not service.is_active:
+        raise ValueError("Service offering not found")
+
+    payment_state = _get_or_create_payment_state(db, appointment_id=appt.id, amount_cents=service.price_cents)
+    if payment_state.status == "paid":
+        raise ValueError("Appointment is already paid")
+
+    form: list[tuple[str, str]] = [
+        ("mode", "payment"),
+        ("success_url", success_url),
+        ("cancel_url", cancel_url),
+        ("client_reference_id", f"appointment:{appt.id}"),
+        ("metadata[appointment_id]", str(appt.id)),
+        ("metadata[payment_target]", "appointment"),
+        ("payment_intent_data[metadata][appointment_id]", str(appt.id)),
+        ("line_items[0][quantity]", "1"),
+        ("line_items[0][price_data][currency]", settings.stripe_checkout_currency),
+        ("line_items[0][price_data][unit_amount]", str(service.price_cents)),
+        ("line_items[0][price_data][product_data][name]", service.name),
+        (
+            "line_items[0][price_data][product_data][description]",
+            (service.description or "Appointment service")[:250],
+        ),
+    ]
+
+    body = urlencode(form).encode("utf-8")
+    req = Request(
+        "https://api.stripe.com/v1/checkout/sessions",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {settings.stripe_secret_key}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+
+    try:
+        with urlopen(req, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise ValueError(f"Stripe session creation failed ({exc.code}): {detail[:250]}") from exc
+    except URLError as exc:
+        raise ValueError(f"Stripe session request failed: {exc.reason}") from exc
+
+    session_id = payload.get("id")
+    checkout_url = payload.get("url")
+    if not isinstance(session_id, str) or not isinstance(checkout_url, str):
+        raise ValueError("Stripe returned an invalid session payload")
+
+    payment_state.status = "pending"
+    payment_state.payment_method = "card"
+    payment_state.checkout_session_id = session_id
+    appt.pay_in_store = False
+    db.commit()
+    db.refresh(appt)
+    return appt, session_id, checkout_url
+
+
+def process_stripe_appointment_payment_event(
+    db: Session,
+    *,
+    event_id: str,
+    event_type: str,
+    appointment_id: int | None,
+    payment_status: str,
+    provider_payment_reference: str | None,
+    amount_total_cents: int | None,
+) -> tuple[str, str]:
+    ensure_appointments_schema()
+
+    if payment_status not in {"paid", "failed"}:
+        return "ignored", "Unsupported payment status"
+    if appointment_id is None:
+        return "ignored", "Missing appointment_id"
+
+    event = AppointmentPaymentWebhookEvent(
+        provider="stripe",
+        event_id=event_id,
+        event_type=event_type,
+        appointment_id=appointment_id,
+        status="received",
+    )
+    db.add(event)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return "duplicate", "Event already processed"
+
+    appt = db.get(Appointment, appointment_id)
+    if appt is None:
+        event.status = "ignored"
+        event.detail = "Appointment not found"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "ignored", "Appointment not found"
+
+    service = db.get(ServiceOffering, appt.service_offering_id)
+    if service is None:
+        event.status = "ignored"
+        event.detail = "Service offering not found"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "ignored", "Service offering not found"
+
+    payment_state = _get_or_create_payment_state(db, appointment_id=appt.id, amount_cents=service.price_cents)
+
+    if amount_total_cents is not None and amount_total_cents != payment_state.amount_cents:
+        event.status = "failed"
+        event.detail = "Amount mismatch"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "failed", "Amount mismatch"
+
+    if payment_status == "failed":
+        payment_state.status = "failed"
+        payment_state.payment_method = "card"
+        payment_state.payment_reference = provider_payment_reference
+        event.status = "processed"
+        event.detail = "Payment failure recorded"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "processed", "Payment failure recorded"
+
+    if payment_state.status == "paid":
+        event.status = "processed"
+        event.detail = "Appointment already paid"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "processed", "Appointment already paid"
+
+    if appt.status in {"cancelled", "completed", "no_show"}:
+        event.status = "ignored"
+        event.detail = f"Appointment not payable in status={appt.status}"
+        event.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return "ignored", event.detail
+
+    payment_state.status = "paid"
+    payment_state.payment_method = "card"
+    payment_state.payment_reference = provider_payment_reference
+    appt.pay_in_store = False
+    if appt.status == "scheduled":
+        appt.status = "confirmed"
+
+    event.status = "processed"
+    event.detail = "Appointment marked as paid"
+    event.processed_at = datetime.now(timezone.utc)
+    db.commit()
+    return "processed", "Appointment marked as paid"
 
 
 def list_user_appointments(db: Session, user_id: int) -> list[Appointment]:

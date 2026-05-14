@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 AppointmentStatus = Literal["scheduled", "confirmed", "cancelled", "completed", "no_show"]
 
@@ -81,3 +81,28 @@ class AvailabilitySlot(BaseModel):
 class AppointmentCancelResponse(BaseModel):
     message: str
     appointment: AppointmentPublic
+
+
+class AppointmentCheckoutStripeSessionCreate(BaseModel):
+    success_url: HttpUrl
+    cancel_url: HttpUrl
+
+
+class AppointmentCheckoutStripeSessionResponse(BaseModel):
+    appointment: AppointmentPublic
+    session_id: str
+    checkout_url: str
+
+
+class AppointmentStripeWebhookEventIn(BaseModel):
+    event_id: str = Field(min_length=1, max_length=255)
+    event_type: str = Field(min_length=1, max_length=120)
+    appointment_id: int | None = None
+    payment_status: Literal["paid", "failed"]
+    provider_payment_reference: str | None = Field(default=None, max_length=255)
+    amount_total_cents: int | None = Field(default=None, ge=0)
+
+
+class AppointmentStripeWebhookEventProcessResponse(BaseModel):
+    result: Literal["processed", "duplicate", "ignored", "failed"]
+    detail: str

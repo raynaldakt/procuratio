@@ -84,6 +84,29 @@ def _extract_order_id(obj: dict[str, Any]) -> int | None:
     return None
 
 
+def _extract_appointment_id(obj: dict[str, Any]) -> int | None:
+    metadata = obj.get("metadata") or {}
+    raw_candidates = [
+        metadata.get("appointment_id"),
+        metadata.get("appt_id"),
+    ]
+
+    client_reference_id = obj.get("client_reference_id")
+    if isinstance(client_reference_id, str) and ":" in client_reference_id:
+        prefix, value = client_reference_id.split(":", 1)
+        if prefix == "appointment":
+            raw_candidates.append(value)
+
+    for raw in raw_candidates:
+        if raw is None:
+            continue
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _extract_amount_total_cents(obj: dict[str, Any]) -> int | None:
     for key in ("amount_total", "amount_received", "amount"):
         value = obj.get(key)
@@ -129,10 +152,21 @@ def normalize_stripe_event(event: dict[str, Any]) -> dict[str, Any] | None:
         }
 
     reference = obj.get("payment_intent") or obj.get("id")
+    appointment_id = _extract_appointment_id(obj)
+    order_id = _extract_order_id(obj)
+    if appointment_id is not None:
+        target = "appointment"
+    elif order_id is not None:
+        target = "shop_order"
+    else:
+        target = "shop_order"
+
     return {
         "event_id": event_id,
         "event_type": event_type,
-        "order_id": _extract_order_id(obj),
+        "target": target,
+        "order_id": order_id,
+        "appointment_id": appointment_id,
         "payment_status": payment_status,
         "provider_payment_reference": str(reference) if reference is not None else None,
         "amount_total_cents": _extract_amount_total_cents(obj),
@@ -179,17 +213,31 @@ async def stripe_webhook(request: Request, stripe_signature: str | None = Header
     if normalized.get("ignored"):
         return {"status": "ignored", "detail": normalized.get("ignored_reason", "Ignored")}
 
+    if normalized.get("target") == "appointment":
+        path = "/appointments/internal/payments/stripe/event"
+        payload = {
+            "event_id": normalized["event_id"],
+            "event_type": normalized["event_type"],
+            "appointment_id": normalized["appointment_id"],
+            "payment_status": normalized["payment_status"],
+            "provider_payment_reference": normalized["provider_payment_reference"],
+            "amount_total_cents": normalized["amount_total_cents"],
+        }
+    else:
+        path = "/shop/internal/payments/stripe/event"
+        payload = {
+            "event_id": normalized["event_id"],
+            "event_type": normalized["event_type"],
+            "order_id": normalized["order_id"],
+            "payment_status": normalized["payment_status"],
+            "provider_payment_reference": normalized["provider_payment_reference"],
+            "amount_total_cents": normalized["amount_total_cents"],
+        }
+
     try:
         response = http.post(
-            f"{settings.api_internal_url}/shop/internal/payments/stripe/event",
-            json={
-                "event_id": normalized["event_id"],
-                "event_type": normalized["event_type"],
-                "order_id": normalized["order_id"],
-                "payment_status": normalized["payment_status"],
-                "provider_payment_reference": normalized["provider_payment_reference"],
-                "amount_total_cents": normalized["amount_total_cents"],
-            },
+            f"{settings.api_internal_url}{path}",
+            json=payload,
             headers={"X-Webhook-Token": settings.payment_webhook_token},
             timeout=20,
         )

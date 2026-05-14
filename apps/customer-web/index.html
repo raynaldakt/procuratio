@@ -118,6 +118,20 @@
             <input id="cancelAppointmentId" type="number" min="1" />
           </label>
           <button id="cancelAppointmentBtn" class="ghost">Cancel Appointment</button>
+          <label>
+            Appointment ID to pay
+            <input id="payAppointmentId" type="number" min="1" />
+          </label>
+          <label>
+            Appointment success URL
+            <input id="appointmentSuccessUrl" value="https://example.com/appointment/success" />
+          </label>
+          <label>
+            Appointment cancel URL
+            <input id="appointmentCancelUrl" value="https://example.com/appointment/cancel" />
+          </label>
+          <button id="payAppointmentBtn" class="accent">Pay Appointment Online</button>
+          <a id="appointmentCheckoutLink" target="_blank" rel="noopener noreferrer"></a>
           <p id="appointmentState" class="hint">Waiting</p>
           <pre id="appointmentPreview">No appointments loaded</pre>
         </article>
