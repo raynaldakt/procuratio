@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_checkout_currency: str = "eur"
     cors_allow_origins: str = "*"
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 

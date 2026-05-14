@@ -4,6 +4,7 @@ from threading import Lock
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
 from app.models.customer_profile import CustomerProfile
@@ -14,6 +15,11 @@ from app.services.customer import ensure_customer_schema
 
 _schema_lock = Lock()
 _schema_ready = False
+
+
+def _twilio_is_configured() -> bool:
+    settings = get_settings()
+    return bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from)
 
 
 def ensure_campaigns_schema() -> None:
@@ -91,6 +97,8 @@ def send_campaign_now(
 
     if channel in {"email", "both"} and not subject:
         raise ValueError("subject is required for email channel")
+    if channel in {"sms", "both"} and not _twilio_is_configured():
+        raise ValueError("SMS channel is not available: Twilio is not configured")
 
     user_ids = _target_user_ids(db, target_mode, min_points)
 
@@ -175,10 +183,11 @@ def queue_birthday_offers_today(
     email_subject: str,
     message: str,
 ) -> tuple[MarketingCampaign, int]:
+    channel = "both" if _twilio_is_configured() else "email"
     return send_campaign_now(
         db,
         name="Birthday Offer",
-        channel="both",
+        channel=channel,
         target_mode="birthday_today",
         subject=email_subject,
         message=message,

@@ -144,6 +144,11 @@ def _compute_reminder_schedule(start_at_utc: datetime) -> list[datetime]:
     return []
 
 
+def _twilio_is_configured() -> bool:
+    settings = get_settings()
+    return bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from)
+
+
 def _queue_appointment_reminders(
     db: Session,
     *,
@@ -161,7 +166,7 @@ def _queue_appointment_reminders(
     sms_opt_in = bool(profile and profile.marketing_sms_opt_in and profile.phone)
     if email_opt_in and customer.email:
         channels.append("email")
-    if sms_opt_in:
+    if sms_opt_in and _twilio_is_configured():
         channels.append("sms")
 
     if not channels:
