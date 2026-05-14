@@ -1,30 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Procuratio Customer Space</title>
+    <title>Procuratio | Customer Experience</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Playfair+Display:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="page">
-      <section class="panel hero">
-        <p class="eyebrow">Procuratio</p>
-        <h1>Customer Space: Shop + Appointments</h1>
-        <p class="subtitle">
-          Manage purchases and online appointments from one place.
-        </p>
-      </section>
+    <div class="bg-orb orb-left" aria-hidden="true"></div>
+    <div class="bg-orb orb-right" aria-hidden="true"></div>
 
-      <section class="panel grid">
-        <article class="card">
-          <h2>1. API & Login</h2>
+    <main class="shell">
+      <header class="hero card">
+        <div>
+          <p class="kicker">Seanergy - Procuratio</p>
+          <h1>Espace Client</h1>
+          <p class="hero-copy">
+            Boutique, reservations et rendez-vous dans une seule interface.
+          </p>
+        </div>
+        <div class="hero-chip-wrap">
+          <span class="hero-chip">Shop</span>
+          <span class="hero-chip">Appointments</span>
+          <span class="hero-chip">Secure Checkout</span>
+        </div>
+      </header>
+
+      <section class="grid-main">
+        <aside class="card auth-card">
+          <h2>Connexion</h2>
           <label>
             API Base URL
             <input id="apiBase" value="http://localhost:8000" />
@@ -34,107 +44,210 @@
             <input id="email" value="customer@procuratio.demo" />
           </label>
           <label>
-            Password
+            Mot de passe
             <input id="password" type="password" value="Customer123!" />
           </label>
-          <button id="loginBtn">Login</button>
-          <p id="authState" class="hint">Not authenticated</p>
-        </article>
+          <div class="row two">
+            <button id="loginBtn">Se connecter</button>
+            <button id="logoutBtn" class="ghost">Se deconnecter</button>
+          </div>
+          <p id="authState" class="state">Non connecte</p>
+        </aside>
 
-        <article class="card">
-          <h2>2. Build Cart</h2>
-          <button id="loadProductsBtn">Load Products</button>
-          <label>
-            Product
-            <select id="productSelect"></select>
-          </label>
-          <label>
-            Quantity
-            <input id="quantity" type="number" min="1" value="1" />
-          </label>
-          <button id="addToCartBtn">Add To Cart</button>
-          <button id="refreshCartBtn" class="ghost">Refresh Cart</button>
-          <pre id="cartPreview">Cart empty</pre>
-        </article>
+        <section class="card workspace">
+          <nav class="tabs" aria-label="Sections client">
+            <button class="tab-btn is-active" data-tab="tab-shop">Boutique</button>
+            <button class="tab-btn" data-tab="tab-appointments">Rendez-vous</button>
+            <button class="tab-btn" data-tab="tab-history">Historique</button>
+          </nav>
 
-        <article class="card">
-          <h2>3. Pay With Stripe</h2>
-          <label>
-            Success URL
-            <input id="successUrl" value="https://example.com/success" />
-          </label>
-          <label>
-            Cancel URL
-            <input id="cancelUrl" value="https://example.com/cancel" />
-          </label>
-          <button id="stripeCheckoutBtn" class="accent">Create Stripe Session</button>
-          <p id="checkoutState" class="hint">Waiting</p>
-          <a id="checkoutLink" target="_blank" rel="noopener noreferrer"></a>
-        </article>
+          <section id="tab-shop" class="tab-pane is-active">
+            <div class="panel-head">
+              <h2>Catalogue</h2>
+              <button id="loadProductsBtn" class="ghost">Actualiser les produits</button>
+            </div>
+            <div class="row filters">
+              <input id="searchQuery" placeholder="Recherche par nom, SKU..." />
+              <input id="searchBrand" placeholder="Marque" />
+              <input id="searchType" placeholder="Type" />
+              <input id="searchMinPrice" type="number" min="0" placeholder="Prix min (centimes)" />
+              <input id="searchMaxPrice" type="number" min="0" placeholder="Prix max (centimes)" />
+            </div>
+            <p id="productState" class="state">Aucun produit charge</p>
+            <div id="productList" class="product-grid"></div>
 
-        <article class="card">
-          <h2>4. Appointment Setup</h2>
-          <button id="loadAppointmentCatalogBtn">Load Services & Employees</button>
-          <label>
-            Service
-            <select id="serviceSelect"></select>
-          </label>
-          <label>
-            Employee
-            <select id="employeeSelect"></select>
-          </label>
-          <label>
-            Date
-            <input id="appointmentDate" type="date" />
-          </label>
-          <button id="searchAvailabilityBtn" class="ghost">Search Availability</button>
-          <p id="appointmentCatalogState" class="hint">Waiting</p>
-        </article>
+            <hr />
 
-        <article class="card">
-          <h2>5. Book Appointment</h2>
-          <label>
-            Available Slot
-            <select id="slotSelect"></select>
-          </label>
-          <label>
-            Notes
-            <input id="appointmentNotes" placeholder="Optional note" />
-          </label>
-          <label class="inline">
-            <input id="payInStore" type="checkbox" checked />
-            <span>Pay in store</span>
-          </label>
-          <button id="bookAppointmentBtn" class="accent">Book Appointment</button>
-          <p id="bookState" class="hint">No booking yet</p>
-          <pre id="bookPreview">No booking payload</pre>
-        </article>
+            <div class="panel-head">
+              <h2>Panier</h2>
+              <div class="row compact">
+                <button id="refreshCartBtn" class="ghost">Rafraichir</button>
+              </div>
+            </div>
+            <div id="cartSummary" class="summary-box">Panier vide</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ligne</th>
+                    <th>Produit ID</th>
+                    <th>Qte</th>
+                    <th>Prix unite</th>
+                    <th>Total</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="cartLinesBody">
+                  <tr>
+                    <td colspan="6" class="empty">Aucune ligne</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-        <article class="card">
-          <h2>6. My Appointments</h2>
-          <button id="refreshAppointmentsBtn">Refresh My Appointments</button>
-          <label>
-            Appointment ID to cancel
-            <input id="cancelAppointmentId" type="number" min="1" />
-          </label>
-          <button id="cancelAppointmentBtn" class="ghost">Cancel Appointment</button>
-          <label>
-            Appointment ID to pay
-            <input id="payAppointmentId" type="number" min="1" />
-          </label>
-          <label>
-            Appointment success URL
-            <input id="appointmentSuccessUrl" value="https://example.com/appointment/success" />
-          </label>
-          <label>
-            Appointment cancel URL
-            <input id="appointmentCancelUrl" value="https://example.com/appointment/cancel" />
-          </label>
-          <button id="payAppointmentBtn" class="accent">Pay Appointment Online</button>
-          <a id="appointmentCheckoutLink" target="_blank" rel="noopener noreferrer"></a>
-          <p id="appointmentState" class="hint">Waiting</p>
-          <pre id="appointmentPreview">No appointments loaded</pre>
-        </article>
+            <div class="checkout-grid">
+              <article class="checkout-block">
+                <h3>Achat en boutique</h3>
+                <div class="row three">
+                  <button id="payCardBtn">Payer carte</button>
+                  <button id="payTransferBtn" class="ghost">Payer virement</button>
+                  <button id="payWalletBtn" class="ghost">Payer wallet</button>
+                </div>
+                <p id="purchaseState" class="state">Aucun paiement lance</p>
+              </article>
+
+              <article class="checkout-block">
+                <h3>Reservation click & collect</h3>
+                <label>
+                  Duree de reservation (heures)
+                  <input id="reservationHours" type="number" min="1" max="168" value="48" />
+                </label>
+                <button id="reserveBtn" class="ghost">Reserver mes produits</button>
+                <p id="reserveState" class="state">Aucune reservation lancee</p>
+              </article>
+
+              <article class="checkout-block">
+                <h3>Paiement Stripe</h3>
+                <label>
+                  Success URL
+                  <input id="successUrl" value="https://example.com/success" />
+                </label>
+                <label>
+                  Cancel URL
+                  <input id="cancelUrl" value="https://example.com/cancel" />
+                </label>
+                <button id="stripeCheckoutBtn" class="accent">Creer la session Stripe</button>
+                <p id="checkoutState" class="state">En attente</p>
+                <a id="checkoutLink" target="_blank" rel="noopener noreferrer"></a>
+              </article>
+            </div>
+          </section>
+
+          <section id="tab-appointments" class="tab-pane">
+            <div class="panel-head">
+              <h2>Prise de rendez-vous</h2>
+              <button id="loadAppointmentCatalogBtn" class="ghost">Charger services & employes</button>
+            </div>
+            <p id="appointmentCatalogState" class="state">Catalogue non charge</p>
+
+            <div class="row three">
+              <label>
+                Service
+                <select id="serviceSelect"></select>
+              </label>
+              <label>
+                Employe
+                <select id="employeeSelect"></select>
+              </label>
+              <label>
+                Date
+                <input id="appointmentDate" type="date" />
+              </label>
+            </div>
+
+            <div class="row two">
+              <button id="searchAvailabilityBtn" class="ghost">Chercher les disponibilites</button>
+              <label class="inline">
+                <input id="payInStore" type="checkbox" checked />
+                <span>Payer en institut</span>
+              </label>
+            </div>
+
+            <p id="slotState" class="state">Aucun slot charge</p>
+            <div id="slotList" class="slot-list"></div>
+
+            <label>
+              Notes
+              <input id="appointmentNotes" placeholder="Preference ou note (optionnel)" />
+            </label>
+
+            <button id="bookAppointmentBtn" class="accent">Confirmer le rendez-vous</button>
+            <p id="bookState" class="state">Aucune reservation de rendez-vous</p>
+            <pre id="bookPreview">Aucun payload</pre>
+          </section>
+
+          <section id="tab-history" class="tab-pane">
+            <div class="panel-head">
+              <h2>Mon historique</h2>
+              <div class="row compact">
+                <button id="refreshAppointmentsBtn" class="ghost">Mes rendez-vous</button>
+                <button id="refreshOrdersBtn" class="ghost">Mes commandes</button>
+                <button id="refreshReservationsBtn" class="ghost">Mes reservations</button>
+              </div>
+            </div>
+
+            <div class="row two">
+              <article>
+                <h3>Rendez-vous</h3>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Debut</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="appointmentsBody">
+                      <tr><td colspan="4" class="empty">Aucun rendez-vous</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article>
+                <h3>Paiement rendez-vous</h3>
+                <label>
+                  ID du rendez-vous
+                  <input id="payAppointmentId" type="number" min="1" />
+                </label>
+                <label>
+                  Success URL
+                  <input id="appointmentSuccessUrl" value="https://example.com/appointment/success" />
+                </label>
+                <label>
+                  Cancel URL
+                  <input id="appointmentCancelUrl" value="https://example.com/appointment/cancel" />
+                </label>
+                <button id="payAppointmentBtn" class="accent">Payer ce rendez-vous</button>
+                <p id="appointmentState" class="state">Aucune action</p>
+                <a id="appointmentCheckoutLink" target="_blank" rel="noopener noreferrer"></a>
+              </article>
+            </div>
+
+            <div class="row two">
+              <article>
+                <h3>Commandes</h3>
+                <pre id="ordersPreview">Aucune commande</pre>
+              </article>
+              <article>
+                <h3>Reservations</h3>
+                <pre id="reservationsPreview">Aucune reservation</pre>
+              </article>
+            </div>
+          </section>
+        </section>
       </section>
     </main>
 

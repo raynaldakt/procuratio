@@ -1,64 +1,122 @@
 const state = {
   token: "",
-  cart: null,
   products: [],
+  cart: null,
+  selectedSlot: "",
   services: [],
   employees: [],
-  slots: [],
+  appointments: [],
 };
 
-const apiBaseInput = document.getElementById("apiBase");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const authState = document.getElementById("authState");
-const productSelect = document.getElementById("productSelect");
-const quantityInput = document.getElementById("quantity");
-const cartPreview = document.getElementById("cartPreview");
-const successUrlInput = document.getElementById("successUrl");
-const cancelUrlInput = document.getElementById("cancelUrl");
-const checkoutState = document.getElementById("checkoutState");
-const checkoutLink = document.getElementById("checkoutLink");
-const serviceSelect = document.getElementById("serviceSelect");
-const employeeSelect = document.getElementById("employeeSelect");
-const appointmentDateInput = document.getElementById("appointmentDate");
-const appointmentCatalogState = document.getElementById("appointmentCatalogState");
-const slotSelect = document.getElementById("slotSelect");
-const appointmentNotesInput = document.getElementById("appointmentNotes");
-const payInStoreInput = document.getElementById("payInStore");
-const bookState = document.getElementById("bookState");
-const bookPreview = document.getElementById("bookPreview");
-const refreshAppointmentsBtn = document.getElementById("refreshAppointmentsBtn");
-const appointmentState = document.getElementById("appointmentState");
-const appointmentPreview = document.getElementById("appointmentPreview");
-const cancelAppointmentIdInput = document.getElementById("cancelAppointmentId");
-const cancelAppointmentBtn = document.getElementById("cancelAppointmentBtn");
-const payAppointmentIdInput = document.getElementById("payAppointmentId");
-const appointmentSuccessUrlInput = document.getElementById("appointmentSuccessUrl");
-const appointmentCancelUrlInput = document.getElementById("appointmentCancelUrl");
-const payAppointmentBtn = document.getElementById("payAppointmentBtn");
-const appointmentCheckoutLink = document.getElementById("appointmentCheckoutLink");
+const els = {
+  apiBase: document.getElementById("apiBase"),
+  email: document.getElementById("email"),
+  password: document.getElementById("password"),
+  authState: document.getElementById("authState"),
 
-const loginBtn = document.getElementById("loginBtn");
-const loadProductsBtn = document.getElementById("loadProductsBtn");
-const addToCartBtn = document.getElementById("addToCartBtn");
-const refreshCartBtn = document.getElementById("refreshCartBtn");
-const stripeCheckoutBtn = document.getElementById("stripeCheckoutBtn");
-const loadAppointmentCatalogBtn = document.getElementById("loadAppointmentCatalogBtn");
-const searchAvailabilityBtn = document.getElementById("searchAvailabilityBtn");
-const bookAppointmentBtn = document.getElementById("bookAppointmentBtn");
+  tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
 
-function getApiBase() {
-  return apiBaseInput.value.trim().replace(/\/$/, "");
+  searchQuery: document.getElementById("searchQuery"),
+  searchBrand: document.getElementById("searchBrand"),
+  searchType: document.getElementById("searchType"),
+  searchMinPrice: document.getElementById("searchMinPrice"),
+  searchMaxPrice: document.getElementById("searchMaxPrice"),
+  productState: document.getElementById("productState"),
+  productList: document.getElementById("productList"),
+
+  cartSummary: document.getElementById("cartSummary"),
+  cartLinesBody: document.getElementById("cartLinesBody"),
+  purchaseState: document.getElementById("purchaseState"),
+  reserveState: document.getElementById("reserveState"),
+  reservationHours: document.getElementById("reservationHours"),
+  successUrl: document.getElementById("successUrl"),
+  cancelUrl: document.getElementById("cancelUrl"),
+  checkoutState: document.getElementById("checkoutState"),
+  checkoutLink: document.getElementById("checkoutLink"),
+
+  serviceSelect: document.getElementById("serviceSelect"),
+  employeeSelect: document.getElementById("employeeSelect"),
+  appointmentDate: document.getElementById("appointmentDate"),
+  appointmentCatalogState: document.getElementById("appointmentCatalogState"),
+  slotState: document.getElementById("slotState"),
+  slotList: document.getElementById("slotList"),
+  appointmentNotes: document.getElementById("appointmentNotes"),
+  payInStore: document.getElementById("payInStore"),
+  bookState: document.getElementById("bookState"),
+  bookPreview: document.getElementById("bookPreview"),
+
+  appointmentsBody: document.getElementById("appointmentsBody"),
+  ordersPreview: document.getElementById("ordersPreview"),
+  reservationsPreview: document.getElementById("reservationsPreview"),
+  payAppointmentId: document.getElementById("payAppointmentId"),
+  appointmentSuccessUrl: document.getElementById("appointmentSuccessUrl"),
+  appointmentCancelUrl: document.getElementById("appointmentCancelUrl"),
+  appointmentState: document.getElementById("appointmentState"),
+  appointmentCheckoutLink: document.getElementById("appointmentCheckoutLink"),
+
+  loginBtn: document.getElementById("loginBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  loadProductsBtn: document.getElementById("loadProductsBtn"),
+  refreshCartBtn: document.getElementById("refreshCartBtn"),
+  payCardBtn: document.getElementById("payCardBtn"),
+  payTransferBtn: document.getElementById("payTransferBtn"),
+  payWalletBtn: document.getElementById("payWalletBtn"),
+  reserveBtn: document.getElementById("reserveBtn"),
+  stripeCheckoutBtn: document.getElementById("stripeCheckoutBtn"),
+
+  loadAppointmentCatalogBtn: document.getElementById("loadAppointmentCatalogBtn"),
+  searchAvailabilityBtn: document.getElementById("searchAvailabilityBtn"),
+  bookAppointmentBtn: document.getElementById("bookAppointmentBtn"),
+
+  refreshAppointmentsBtn: document.getElementById("refreshAppointmentsBtn"),
+  refreshOrdersBtn: document.getElementById("refreshOrdersBtn"),
+  refreshReservationsBtn: document.getElementById("refreshReservationsBtn"),
+  payAppointmentBtn: document.getElementById("payAppointmentBtn"),
+};
+
+function apiBase() {
+  return els.apiBase.value.trim().replace(/\/$/, "");
 }
 
-async function api(path, options = {}) {
+function money(cents) {
+  return `${(cents / 100).toFixed(2)} EUR`;
+}
+
+function setState(el, message, tone = "") {
+  el.textContent = message;
+  el.classList.remove("ok", "warn", "err");
+  if (tone) {
+    el.classList.add(tone);
+  }
+}
+
+function safeText(value) {
+  return String(value ?? "").replace(/[&<>\"']/g, (ch) => {
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return map[ch] || ch;
+  });
+}
+
+function requireAuth() {
+  if (!state.token) {
+    throw new Error("Connecte-toi d'abord");
+  }
+}
+
+async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
   if (state.token) {
     headers.set("Authorization", `Bearer ${state.token}`);
   }
 
-  const response = await fetch(`${getApiBase()}${path}`, {
+  const response = await fetch(`${apiBase()}${path}`, {
     ...options,
     headers,
   });
@@ -68,179 +126,291 @@ async function api(path, options = {}) {
   if (text) {
     try {
       body = JSON.parse(text);
-    } catch (_) {
+    } catch {
       body = { raw: text };
     }
   }
+
   if (!response.ok) {
-    throw new Error(body.detail || body.raw || `${response.status}`);
+    throw new Error(body.detail || body.raw || `HTTP ${response.status}`);
   }
+
   return body;
 }
 
-function renderProducts() {
-  productSelect.innerHTML = "";
-  for (const p of state.products) {
-    const option = document.createElement("option");
-    option.value = String(p.id);
-    option.textContent = `#${p.id} ${p.name} - ${(p.price_cents / 100).toFixed(2)} EUR`;
-    productSelect.appendChild(option);
-  }
+function switchTab(targetId) {
+  els.tabButtons.forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.tab === targetId);
+  });
+
+  document.querySelectorAll(".tab-pane").forEach((pane) => {
+    pane.classList.toggle("is-active", pane.id === targetId);
+  });
 }
 
-function renderCart(payload) {
-  state.cart = payload;
-  cartPreview.textContent = JSON.stringify(payload, null, 2);
-}
-
-function setDefaultAppointmentDate() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  appointmentDateInput.value = tomorrow.toISOString().slice(0, 10);
-}
-
-function renderAppointmentCatalog() {
-  serviceSelect.innerHTML = "";
-  for (const s of state.services) {
-    const option = document.createElement("option");
-    option.value = String(s.id);
-    option.textContent = `${s.name} (${s.duration_minutes} min)`;
-    serviceSelect.appendChild(option);
-  }
-
-  employeeSelect.innerHTML = "";
-  for (const emp of state.employees) {
-    const option = document.createElement("option");
-    option.value = String(emp.user_id);
-    option.textContent = `Employee #${emp.user_id}`;
-    employeeSelect.appendChild(option);
-  }
-}
-
-function renderSlots() {
-  slotSelect.innerHTML = "";
-  for (const slot of state.slots) {
-    const option = document.createElement("option");
-    option.value = slot.start_at;
-    option.textContent = new Date(slot.start_at).toLocaleString();
-    slotSelect.appendChild(option);
-  }
-}
-
-async function doLogin() {
-  authState.textContent = "Authenticating...";
+async function login() {
+  setState(els.authState, "Connexion en cours...");
   try {
-    const result = await api("/auth/login", {
+    const data = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify({
-        email: emailInput.value.trim(),
-        password: passwordInput.value,
+        email: els.email.value.trim(),
+        password: els.password.value,
       }),
-      headers: {},
     });
-    state.token = result.access_token || "";
-    authState.textContent = "Authenticated";
+    state.token = data.access_token || "";
+    setState(els.authState, "Connecte", "ok");
+    await Promise.all([loadProducts(), refreshCart()]);
   } catch (err) {
-    authState.textContent = `Login failed: ${err.message}`;
+    setState(els.authState, `Echec connexion: ${err.message}`, "err");
   }
+}
+
+function logout() {
+  state.token = "";
+  state.cart = null;
+  state.appointments = [];
+  renderCart(null);
+  renderAppointments([]);
+  setState(els.authState, "Deconnecte", "warn");
+}
+
+function productQuery() {
+  const params = new URLSearchParams();
+  const q = els.searchQuery.value.trim();
+  const brand = els.searchBrand.value.trim();
+  const type = els.searchType.value.trim();
+  const min = els.searchMinPrice.value.trim();
+  const max = els.searchMaxPrice.value.trim();
+
+  if (q) params.set("q", q);
+  if (brand) params.set("brand", brand);
+  if (type) params.set("product_type", type);
+  if (min) params.set("min_price_cents", min);
+  if (max) params.set("max_price_cents", max);
+
+  const suffix = params.toString();
+  return suffix ? `/shop/products?${suffix}` : "/shop/products";
 }
 
 async function loadProducts() {
   try {
-    const products = await api("/shop/products", { method: "GET" });
+    const products = await request(productQuery());
     state.products = products;
     renderProducts();
-    authState.textContent = `Loaded ${products.length} product(s)`;
+    setState(els.productState, `${products.length} produit(s) charge(s)`, "ok");
   } catch (err) {
-    authState.textContent = `Load products failed: ${err.message}`;
+    setState(els.productState, `Echec chargement produits: ${err.message}`, "err");
   }
+}
+
+function renderProducts() {
+  if (state.products.length === 0) {
+    els.productList.innerHTML = '<p class="state warn">Aucun produit trouve.</p>';
+    return;
+  }
+
+  els.productList.innerHTML = state.products
+    .map((p) => {
+      const stockLabel = p.stock_quantity > 0 ? `Stock: ${p.stock_quantity}` : "Rupture";
+      const stockClass = p.stock_quantity > 0 ? "ok" : "err";
+      return `
+        <article class="product-card" data-product-id="${p.id}">
+          <div class="product-meta">
+            <span>${safeText(p.brand || "Sans marque")}</span>
+            <span class="${stockClass}">${stockLabel}</span>
+          </div>
+          <h4>${safeText(p.name)}</h4>
+          <p>${safeText(p.description || "Description indisponible")}</p>
+          <p><strong>${money(p.price_cents)}</strong></p>
+          <div class="row two">
+            <input type="number" min="1" value="1" class="qty-input" />
+            <button class="add-cart-btn" ${p.stock_quantity <= 0 ? "disabled" : ""}>Ajouter</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 async function ensureCart() {
-  const cart = await api("/shop/cart", {
+  await request("/shop/cart", {
     method: "POST",
     body: JSON.stringify({}),
   });
-  return cart;
-}
-
-async function addToCart() {
-  try {
-    await ensureCart();
-    const payload = await api("/shop/cart/lines", {
-      method: "POST",
-      body: JSON.stringify({
-        product_item_id: Number(productSelect.value),
-        quantity: Number(quantityInput.value || "1"),
-      }),
-    });
-    renderCart(payload);
-  } catch (err) {
-    cartPreview.textContent = `Add to cart failed: ${err.message}`;
-  }
 }
 
 async function refreshCart() {
   try {
-    const payload = await api("/shop/cart", { method: "GET" });
-    renderCart(payload);
+    requireAuth();
+    const data = await request("/shop/cart");
+    state.cart = data;
+    renderCart(data);
   } catch (err) {
-    cartPreview.textContent = `Refresh cart failed: ${err.message}`;
+    renderCart(null, `Echec panier: ${err.message}`);
   }
 }
 
-async function createStripeSession() {
-  checkoutState.textContent = "Creating checkout session...";
-  checkoutLink.textContent = "";
-  checkoutLink.href = "#";
+function renderCart(data, errorMessage = "") {
+  if (!data) {
+    els.cartSummary.textContent = errorMessage || "Panier vide";
+    els.cartLinesBody.innerHTML = '<tr><td colspan="6" class="empty">Aucune ligne</td></tr>';
+    return;
+  }
+
+  const order = data.order;
+  const lines = data.lines || [];
+  els.cartSummary.innerHTML = `Commande #${order.id} - Statut: <strong>${safeText(order.status)}</strong> - Total: <strong>${money(order.total_cents)}</strong>`;
+
+  if (lines.length === 0) {
+    els.cartLinesBody.innerHTML = '<tr><td colspan="6" class="empty">Aucune ligne</td></tr>';
+    return;
+  }
+
+  els.cartLinesBody.innerHTML = lines
+    .map(
+      (line) => `
+      <tr>
+        <td>#${line.id}</td>
+        <td>${line.product_item_id}</td>
+        <td>${line.quantity}</td>
+        <td>${money(line.unit_price_cents)}</td>
+        <td>${money(line.total_price_cents)}</td>
+        <td><button class="ghost remove-line-btn" data-line-id="${line.id}">Retirer</button></td>
+      </tr>
+    `,
+    )
+    .join("");
+}
+
+async function addToCart(productId, quantity) {
   try {
-    const payload = await api("/shop/cart/checkout/stripe-session", {
+    requireAuth();
+    await ensureCart();
+    const data = await request("/shop/cart/lines", {
       method: "POST",
       body: JSON.stringify({
-        success_url: successUrlInput.value.trim(),
-        cancel_url: cancelUrlInput.value.trim(),
+        product_item_id: Number(productId),
+        quantity: Number(quantity),
       }),
     });
-    checkoutState.textContent = `Session created: ${payload.session_id}`;
-    checkoutLink.href = payload.checkout_url;
-    checkoutLink.textContent = payload.checkout_url;
+    state.cart = data;
+    renderCart(data);
+    setState(els.productState, "Produit ajoute au panier", "ok");
   } catch (err) {
-    checkoutState.textContent = `Checkout failed: ${err.message}`;
+    setState(els.productState, `Ajout panier impossible: ${err.message}`, "err");
+  }
+}
+
+async function removeCartLine(lineId) {
+  try {
+    requireAuth();
+    const data = await request(`/shop/cart/lines/${lineId}`, { method: "DELETE" });
+    state.cart = data;
+    renderCart(data);
+  } catch (err) {
+    setState(els.purchaseState, `Suppression impossible: ${err.message}`, "err");
+  }
+}
+
+async function purchase(method) {
+  try {
+    requireAuth();
+    const data = await request("/shop/cart/checkout/purchase", {
+      method: "POST",
+      body: JSON.stringify({ payment_method: method }),
+    });
+    setState(
+      els.purchaseState,
+      `Achat confirme (#${data.order.id}) - Points gagnes: ${data.loyalty_points_earned}`,
+      "ok",
+    );
+    await refreshCart();
+    await refreshOrders();
+  } catch (err) {
+    setState(els.purchaseState, `Paiement echoue: ${err.message}`, "err");
+  }
+}
+
+async function reserveCart() {
+  try {
+    requireAuth();
+    const data = await request("/shop/cart/checkout/reserve", {
+      method: "POST",
+      body: JSON.stringify({
+        expires_in_hours: Number(els.reservationHours.value || "48"),
+      }),
+    });
+    setState(
+      els.reserveState,
+      `Reservation creee pour la commande #${data.order.id}`,
+      "ok",
+    );
+    await refreshCart();
+    await refreshReservations();
+  } catch (err) {
+    setState(els.reserveState, `Reservation echouee: ${err.message}`, "err");
+  }
+}
+
+async function createCartStripeSession() {
+  els.checkoutLink.textContent = "";
+  els.checkoutLink.href = "#";
+  try {
+    requireAuth();
+    const data = await request("/shop/cart/checkout/stripe-session", {
+      method: "POST",
+      body: JSON.stringify({
+        success_url: els.successUrl.value.trim(),
+        cancel_url: els.cancelUrl.value.trim(),
+      }),
+    });
+    setState(els.checkoutState, `Session Stripe creee (${data.session_id})`, "ok");
+    els.checkoutLink.href = data.checkout_url;
+    els.checkoutLink.textContent = data.checkout_url;
+  } catch (err) {
+    setState(els.checkoutState, `Stripe indisponible: ${err.message}`, "err");
   }
 }
 
 async function loadAppointmentCatalog() {
-  appointmentCatalogState.textContent = "Loading services and employees...";
   try {
+    requireAuth();
     const [services, employees] = await Promise.all([
-      api("/appointments/services", { method: "GET" }),
-      api("/appointments/employees", { method: "GET" }),
+      request("/appointments/services"),
+      request("/appointments/employees"),
     ]);
+
     state.services = services;
     state.employees = employees;
-    renderAppointmentCatalog();
-    if (services.length === 0) {
-      appointmentCatalogState.textContent = "No active services found. Create one from staff/backoffice.";
-      return;
-    }
-    if (employees.length === 0) {
-      appointmentCatalogState.textContent = "No bookable employees found. Configure employee profiles.";
-      return;
-    }
-    appointmentCatalogState.textContent = `Loaded ${services.length} service(s), ${employees.length} employee(s)`;
+
+    els.serviceSelect.innerHTML = services
+      .map((svc) => `<option value="${svc.id}">${safeText(svc.name)} (${svc.duration_minutes} min)</option>`)
+      .join("");
+
+    els.employeeSelect.innerHTML = employees
+      .map((emp) => `<option value="${emp.user_id}">Employe #${emp.user_id}</option>`)
+      .join("");
+
+    setState(
+      els.appointmentCatalogState,
+      `${services.length} service(s), ${employees.length} employe(s) charges`,
+      "ok",
+    );
   } catch (err) {
-    appointmentCatalogState.textContent = `Catalog load failed: ${err.message}`;
+    setState(els.appointmentCatalogState, `Chargement catalogue impossible: ${err.message}`, "err");
   }
 }
 
 async function searchAvailability() {
-  appointmentCatalogState.textContent = "Searching availability...";
   try {
-    const serviceId = Number(serviceSelect.value);
-    const employeeId = Number(employeeSelect.value);
-    const targetDate = appointmentDateInput.value;
+    requireAuth();
+    const serviceId = Number(els.serviceSelect.value);
+    const employeeId = Number(els.employeeSelect.value);
+    const targetDate = els.appointmentDate.value;
+
     if (!serviceId || !employeeId || !targetDate) {
-      throw new Error("Pick service, employee and date");
+      throw new Error("Selectionne service, employe et date");
     }
 
     const query = new URLSearchParams({
@@ -248,97 +418,248 @@ async function searchAvailability() {
       employee_user_id: String(employeeId),
       target_date: targetDate,
     });
-    const slots = await api(`/appointments/availability?${query.toString()}`, { method: "GET" });
-    state.slots = slots;
-    renderSlots();
-    appointmentCatalogState.textContent = `Found ${slots.length} slot(s)`;
+
+    const slots = await request(`/appointments/availability?${query.toString()}`);
+    renderSlots(slots);
+    setState(els.slotState, `${slots.length} disponibilite(s) trouvee(s)`, slots.length ? "ok" : "warn");
   } catch (err) {
-    appointmentCatalogState.textContent = `Availability failed: ${err.message}`;
+    setState(els.slotState, `Recherche indisponibilites: ${err.message}`, "err");
   }
+}
+
+function renderSlots(slots) {
+  state.selectedSlot = "";
+  if (!slots.length) {
+    els.slotList.innerHTML = '<p class="state warn">Aucun slot.</p>';
+    return;
+  }
+
+  els.slotList.innerHTML = slots
+    .map((slot, index) => {
+      const iso = slot.start_at;
+      const label = new Date(iso).toLocaleString();
+      return `<button class="slot-btn ${index === 0 ? "is-selected" : ""}" data-slot="${iso}">${safeText(label)}</button>`;
+    })
+    .join("");
+
+  state.selectedSlot = slots[0].start_at;
 }
 
 async function bookAppointment() {
-  bookState.textContent = "Booking appointment...";
   try {
-    const payload = await api("/appointments/book", {
+    requireAuth();
+    if (!state.selectedSlot) {
+      throw new Error("Choisis un slot de disponibilite");
+    }
+
+    const payload = await request("/appointments/book", {
       method: "POST",
       body: JSON.stringify({
-        service_offering_id: Number(serviceSelect.value),
-        employee_user_id: Number(employeeSelect.value),
-        start_at: slotSelect.value,
-        notes: appointmentNotesInput.value.trim() || null,
-        pay_in_store: payInStoreInput.checked,
+        service_offering_id: Number(els.serviceSelect.value),
+        employee_user_id: Number(els.employeeSelect.value),
+        start_at: state.selectedSlot,
+        notes: els.appointmentNotes.value.trim() || null,
+        pay_in_store: els.payInStore.checked,
       }),
     });
-    bookState.textContent = `Appointment #${payload.id} booked`;
-    bookPreview.textContent = JSON.stringify(payload, null, 2);
-    cancelAppointmentIdInput.value = String(payload.id);
-    payAppointmentIdInput.value = String(payload.id);
+
+    setState(els.bookState, `Rendez-vous #${payload.id} confirme`, "ok");
+    els.bookPreview.textContent = JSON.stringify(payload, null, 2);
+    els.payAppointmentId.value = String(payload.id);
+    await refreshAppointments();
   } catch (err) {
-    bookState.textContent = `Booking failed: ${err.message}`;
+    setState(els.bookState, `Reservation impossible: ${err.message}`, "err");
   }
+}
+
+function renderAppointments(items) {
+  if (!items.length) {
+    els.appointmentsBody.innerHTML = '<tr><td colspan="4" class="empty">Aucun rendez-vous</td></tr>';
+    return;
+  }
+
+  els.appointmentsBody.innerHTML = items
+    .map((appt) => {
+      const when = new Date(appt.start_at).toLocaleString();
+      return `
+        <tr>
+          <td>#${appt.id}</td>
+          <td>${safeText(when)}</td>
+          <td>${safeText(appt.status)}</td>
+          <td><button class="ghost cancel-appt-btn" data-appointment-id="${appt.id}">Annuler</button></td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 async function refreshAppointments() {
-  appointmentState.textContent = "Loading appointments...";
   try {
-    const rows = await api("/appointments/me", { method: "GET" });
-    appointmentState.textContent = `Loaded ${rows.length} appointment(s)`;
-    appointmentPreview.textContent = JSON.stringify(rows, null, 2);
+    requireAuth();
+    const rows = await request("/appointments/me");
+    state.appointments = rows;
+    renderAppointments(rows);
+    setState(els.appointmentState, `${rows.length} rendez-vous charges`, "ok");
   } catch (err) {
-    appointmentState.textContent = `Load failed: ${err.message}`;
+    setState(els.appointmentState, `Echec chargement RDV: ${err.message}`, "err");
   }
 }
 
-async function cancelAppointment() {
-  appointmentState.textContent = "Cancelling appointment...";
+async function cancelAppointment(appointmentId) {
   try {
-    const id = Number(cancelAppointmentIdInput.value);
-    if (!id) {
-      throw new Error("Provide appointment ID");
-    }
-    const payload = await api(`/appointments/${id}/cancel`, { method: "POST", body: JSON.stringify({}) });
-    appointmentState.textContent = `Appointment #${id} cancelled`;
-    appointmentPreview.textContent = JSON.stringify(payload, null, 2);
+    requireAuth();
+    await request(`/appointments/${appointmentId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setState(els.appointmentState, `Rendez-vous #${appointmentId} annule`, "ok");
+    await refreshAppointments();
   } catch (err) {
-    appointmentState.textContent = `Cancel failed: ${err.message}`;
+    setState(els.appointmentState, `Annulation impossible: ${err.message}`, "err");
   }
 }
 
-async function payAppointmentOnline() {
-  appointmentState.textContent = "Creating appointment checkout session...";
-  appointmentCheckoutLink.textContent = "";
-  appointmentCheckoutLink.href = "#";
+async function createAppointmentStripeSession() {
+  els.appointmentCheckoutLink.textContent = "";
+  els.appointmentCheckoutLink.href = "#";
   try {
-    const id = Number(payAppointmentIdInput.value);
+    requireAuth();
+    const id = Number(els.payAppointmentId.value);
     if (!id) {
-      throw new Error("Provide appointment ID");
+      throw new Error("Entre un ID de rendez-vous");
     }
-    const payload = await api(`/appointments/${id}/checkout/stripe-session`, {
+
+    const data = await request(`/appointments/${id}/checkout/stripe-session`, {
       method: "POST",
       body: JSON.stringify({
-        success_url: appointmentSuccessUrlInput.value.trim(),
-        cancel_url: appointmentCancelUrlInput.value.trim(),
+        success_url: els.appointmentSuccessUrl.value.trim(),
+        cancel_url: els.appointmentCancelUrl.value.trim(),
       }),
     });
-    appointmentState.textContent = `Appointment session created: ${payload.session_id}`;
-    appointmentCheckoutLink.href = payload.checkout_url;
-    appointmentCheckoutLink.textContent = payload.checkout_url;
+
+    setState(els.appointmentState, `Session Stripe RDV creee (${data.session_id})`, "ok");
+    els.appointmentCheckoutLink.href = data.checkout_url;
+    els.appointmentCheckoutLink.textContent = data.checkout_url;
   } catch (err) {
-    appointmentState.textContent = `Appointment payment failed: ${err.message}`;
+    setState(els.appointmentState, `Paiement RDV impossible: ${err.message}`, "err");
   }
 }
 
-loginBtn.addEventListener("click", doLogin);
-loadProductsBtn.addEventListener("click", loadProducts);
-addToCartBtn.addEventListener("click", addToCart);
-refreshCartBtn.addEventListener("click", refreshCart);
-stripeCheckoutBtn.addEventListener("click", createStripeSession);
-loadAppointmentCatalogBtn.addEventListener("click", loadAppointmentCatalog);
-searchAvailabilityBtn.addEventListener("click", searchAvailability);
-bookAppointmentBtn.addEventListener("click", bookAppointment);
-refreshAppointmentsBtn.addEventListener("click", refreshAppointments);
-cancelAppointmentBtn.addEventListener("click", cancelAppointment);
-payAppointmentBtn.addEventListener("click", payAppointmentOnline);
+async function refreshOrders() {
+  try {
+    requireAuth();
+    const rows = await request("/shop/orders/me");
+    els.ordersPreview.textContent = JSON.stringify(rows, null, 2);
+  } catch (err) {
+    els.ordersPreview.textContent = `Echec commandes: ${err.message}`;
+  }
+}
 
-setDefaultAppointmentDate();
+async function refreshReservations() {
+  try {
+    requireAuth();
+    const rows = await request("/shop/reservations/me");
+    els.reservationsPreview.textContent = JSON.stringify(rows, null, 2);
+  } catch (err) {
+    els.reservationsPreview.textContent = `Echec reservations: ${err.message}`;
+  }
+}
+
+function setDefaultDate() {
+  const nextDay = new Date();
+  nextDay.setDate(nextDay.getDate() + 1);
+  els.appointmentDate.value = nextDay.toISOString().slice(0, 10);
+}
+
+function bindEvents() {
+  els.tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
+
+  els.loginBtn.addEventListener("click", login);
+  els.logoutBtn.addEventListener("click", logout);
+
+  els.loadProductsBtn.addEventListener("click", loadProducts);
+  [els.searchQuery, els.searchBrand, els.searchType, els.searchMinPrice, els.searchMaxPrice].forEach((input) => {
+    input.addEventListener("change", loadProducts);
+  });
+
+  els.productList.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.classList.contains("add-cart-btn")) {
+      const card = target.closest(".product-card");
+      if (!card) {
+        return;
+      }
+      const qtyInput = card.querySelector(".qty-input");
+      const productId = Number(card.dataset.productId);
+      const qty = qtyInput instanceof HTMLInputElement ? Number(qtyInput.value || "1") : 1;
+      addToCart(productId, qty);
+    }
+  });
+
+  els.cartLinesBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (target.classList.contains("remove-line-btn")) {
+      const lineId = Number(target.dataset.lineId);
+      if (lineId) {
+        removeCartLine(lineId);
+      }
+    }
+  });
+
+  els.refreshCartBtn.addEventListener("click", refreshCart);
+  els.payCardBtn.addEventListener("click", () => purchase("card"));
+  els.payTransferBtn.addEventListener("click", () => purchase("transfer"));
+  els.payWalletBtn.addEventListener("click", () => purchase("wallet"));
+  els.reserveBtn.addEventListener("click", reserveCart);
+  els.stripeCheckoutBtn.addEventListener("click", createCartStripeSession);
+
+  els.loadAppointmentCatalogBtn.addEventListener("click", loadAppointmentCatalog);
+  els.searchAvailabilityBtn.addEventListener("click", searchAvailability);
+  els.bookAppointmentBtn.addEventListener("click", bookAppointment);
+
+  els.slotList.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (!target.classList.contains("slot-btn")) {
+      return;
+    }
+
+    els.slotList.querySelectorAll(".slot-btn").forEach((btn) => btn.classList.remove("is-selected"));
+    target.classList.add("is-selected");
+    state.selectedSlot = target.dataset.slot || "";
+  });
+
+  els.refreshAppointmentsBtn.addEventListener("click", refreshAppointments);
+  els.refreshOrdersBtn.addEventListener("click", refreshOrders);
+  els.refreshReservationsBtn.addEventListener("click", refreshReservations);
+
+  els.appointmentsBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (target.classList.contains("cancel-appt-btn")) {
+      const id = Number(target.dataset.appointmentId);
+      if (id) {
+        cancelAppointment(id);
+      }
+    }
+  });
+
+  els.payAppointmentBtn.addEventListener("click", createAppointmentStripeSession);
+}
+
+bindEvents();
+setDefaultDate();
+switchTab("tab-shop");

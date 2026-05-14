@@ -1,143 +1,320 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Procuratio Backoffice Dashboard</title>
+    <title>Procuratio | Backoffice</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=DM+Serif+Display&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&family=Playfair+Display:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="page">
-      <section class="hero">
-        <p class="eyebrow">Procuratio</p>
-        <h1>Backoffice Dashboard</h1>
-        <p>Operations pulse for sales, appointments and notification delivery.</p>
-      </section>
+    <div class="blob blob-a" aria-hidden="true"></div>
+    <div class="blob blob-b" aria-hidden="true"></div>
 
-      <section class="grid">
-        <article class="card">
-          <h2>Access</h2>
+    <main class="shell">
+      <header class="hero card">
+        <div>
+          <p class="kicker">Seanergy - Procuratio</p>
+          <h1>Backoffice Operations Hub</h1>
+          <p class="sub">Pilotage quotidien: caisse, planning, campagnes, bons cadeaux et relation client.</p>
+        </div>
+        <div class="hero-badges">
+          <span class="chip">POS</span>
+          <span class="chip">CRM</span>
+          <span class="chip">Marketing</span>
+          <span class="chip">Stats</span>
+        </div>
+      </header>
+
+      <section class="layout">
+        <aside class="card sidebar">
+          <h2>Acces</h2>
           <label>API Base URL <input id="apiBase" value="http://localhost:8000" /></label>
           <label>Email <input id="email" value="staff@procuratio.demo" /></label>
-          <label>Password <input id="password" type="password" value="Staff123!" /></label>
-          <button id="loginBtn">Login</button>
-          <button id="refreshAllBtn">Refresh All</button>
-          <p id="authState" class="hint">Not authenticated</p>
-        </article>
+          <label>Mot de passe <input id="password" type="password" value="Staff123!" /></label>
+          <div class="row two">
+            <button id="loginBtn">Connexion</button>
+            <button id="logoutBtn" class="ghost">Logout</button>
+          </div>
+          <p id="authState" class="state">Non connecte</p>
 
-        <article class="card">
-          <h2>KPI Filters</h2>
-          <label>Period
+          <hr />
+
+          <h2>Vue KPI</h2>
+          <label>
+            Periode
             <select id="statsPeriod">
-              <option value="week">week</option>
-              <option value="month" selected>month</option>
-              <option value="year">year</option>
+              <option value="week">Semaine</option>
+              <option value="month" selected>Mois</option>
+              <option value="year">Annee</option>
             </select>
           </label>
-          <button id="loadStatsBtn">Load KPI</button>
-          <p class="hint">KPIs below and top items use this period.</p>
-        </article>
+          <button id="refreshAllBtn">Refresh global</button>
+          <p class="muted">Mise a jour des indicateurs, tickets et notifications.</p>
+        </aside>
 
-        <article class="card">
-          <h2>Notifications Queue</h2>
-          <label>Status filter
-            <select id="notifStatus">
-              <option value="">all</option>
-              <option value="pending" selected>pending</option>
-              <option value="processing">processing</option>
-              <option value="sent">sent</option>
-              <option value="failed">failed</option>
-            </select>
-          </label>
-          <button id="loadNotificationsBtn">Load Queue</button>
-          <p class="hint" id="notifMeta">No notifications loaded</p>
-        </article>
-      </section>
+        <section class="card workspace">
+          <nav class="tabs">
+            <button class="tab-btn is-active" data-tab="tab-dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="tab-pos">POS Desk</button>
+            <button class="tab-btn" data-tab="tab-marketing">Campagnes</button>
+            <button class="tab-btn" data-tab="tab-gifts">Gift Vouchers</button>
+            <button class="tab-btn" data-tab="tab-customers">Client CRM</button>
+          </nav>
 
-      <section class="kpi-grid">
-        <article class="kpi-card"><p>Net Revenue</p><h3 id="kpiNetRevenue">-</h3></article>
-        <article class="kpi-card"><p>Gross Revenue</p><h3 id="kpiGrossRevenue">-</h3></article>
-        <article class="kpi-card"><p>Tickets Paid</p><h3 id="kpiTicketsPaid">-</h3></article>
-        <article class="kpi-card"><p>Appointments</p><h3 id="kpiAppointments">-</h3></article>
-        <article class="kpi-card"><p>New Customers</p><h3 id="kpiNewCustomers">-</h3></article>
-        <article class="kpi-card"><p>Loyalty Earned</p><h3 id="kpiLoyalty">-</h3></article>
-      </section>
+          <section id="tab-dashboard" class="tab-pane is-active">
+            <div class="kpi-grid">
+              <article class="kpi"><p>CA Net</p><h3 id="kpiNetRevenue">-</h3></article>
+              <article class="kpi"><p>CA Brut</p><h3 id="kpiGrossRevenue">-</h3></article>
+              <article class="kpi"><p>Tickets payes</p><h3 id="kpiTicketsPaid">-</h3></article>
+              <article class="kpi"><p>Rendez-vous</p><h3 id="kpiAppointments">-</h3></article>
+              <article class="kpi"><p>Nouveaux clients</p><h3 id="kpiNewCustomers">-</h3></article>
+              <article class="kpi"><p>Points fidelite</p><h3 id="kpiLoyalty">-</h3></article>
+            </div>
 
-      <section class="grid tables">
-        <article class="card">
-          <h2>Recent POS Tickets</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Discount</th>
-                <th>Payment</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody id="ticketsBody">
-              <tr><td colspan="5">No data</td></tr>
-            </tbody>
-          </table>
-        </article>
+            <div class="row two panels">
+              <article>
+                <h3>Tickets recents</h3>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>ID</th><th>Statut</th><th>Paiement</th><th>Maj</th></tr>
+                    </thead>
+                    <tbody id="ticketsBody"><tr><td colspan="4" class="empty">Aucune donnee</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
 
-        <article class="card">
-          <h2>My Related Appointments</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Customer</th>
-                <th>Employee</th>
-                <th>Start</th>
-              </tr>
-            </thead>
-            <tbody id="appointmentsBody">
-              <tr><td colspan="5">No data</td></tr>
-            </tbody>
-          </table>
-        </article>
+              <article>
+                <h3>Mes rendez-vous lies</h3>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>ID</th><th>Statut</th><th>Client</th><th>Date</th></tr>
+                    </thead>
+                    <tbody id="appointmentsBody"><tr><td colspan="4" class="empty">Aucune donnee</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
 
-        <article class="card">
-          <h2>Notification Queue</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Channel</th>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>Scheduled</th>
-              </tr>
-            </thead>
-            <tbody id="notifBody">
-              <tr><td colspan="5">No data</td></tr>
-            </tbody>
-          </table>
-        </article>
-      </section>
+            <div class="row three panels">
+              <article><h3>Top produits</h3><pre id="topProductsPreview">No data</pre></article>
+              <article><h3>Top services</h3><pre id="topServicesPreview">No data</pre></article>
+              <article><h3>JSON Stats</h3><pre id="statsPreview">No data</pre></article>
+            </div>
+          </section>
 
-      <section class="grid tables">
-        <article class="card">
-          <h2>Top Products</h2>
-          <pre id="topProductsPreview">No data</pre>
-        </article>
-        <article class="card">
-          <h2>Top Services</h2>
-          <pre id="topServicesPreview">No data</pre>
-        </article>
-        <article class="card">
-          <h2>Raw Stats JSON</h2>
-          <pre id="statsPreview">No stats loaded</pre>
-        </article>
+          <section id="tab-pos" class="tab-pane">
+            <div class="row two panels">
+              <article>
+                <h3>Creation ticket</h3>
+                <label>Notes ticket <input id="ticketNotes" placeholder="Ticket client walk-in" /></label>
+                <button id="createTicketBtn">Creer ticket</button>
+                <p id="ticketState" class="state">Aucun ticket actif</p>
+                <label>ID ticket actif <input id="ticketId" type="number" min="1" /></label>
+                <button id="loadTicketBtn" class="ghost">Charger details ticket</button>
+              </article>
+
+              <article>
+                <h3>Parametres ticket</h3>
+                <label>ID client (optionnel) <input id="ticketCustomerId" type="number" min="1" /></label>
+                <button id="setTicketCustomerBtn" class="ghost">Associer client</button>
+                <label>Remise (centimes) <input id="ticketDiscount" type="number" min="0" value="0" /></label>
+                <button id="setTicketDiscountBtn" class="ghost">Appliquer remise</button>
+                <div class="row two compact">
+                  <button id="suspendTicketBtn" class="ghost">Suspendre</button>
+                  <button id="resumeTicketBtn" class="ghost">Reprendre</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="row two panels">
+              <article>
+                <h3>Ajouter produit</h3>
+                <div class="row two">
+                  <button id="loadPosCatalogBtn" class="ghost">Charger catalogue POS</button>
+                  <button id="loadServicesBtn" class="ghost">Charger services</button>
+                </div>
+                <label>Produit <select id="posProductSelect"></select></label>
+                <label>Quantite <input id="posProductQty" type="number" min="1" value="1" /></label>
+                <button id="addProductLineBtn">Ajouter ligne produit</button>
+              </article>
+
+              <article>
+                <h3>Ajouter service</h3>
+                <label>Service <select id="posServiceSelect"></select></label>
+                <label>Quantite <input id="posServiceQty" type="number" min="1" value="1" /></label>
+                <button id="addServiceLineBtn">Ajouter ligne service</button>
+              </article>
+            </div>
+
+            <div class="row two panels">
+              <article>
+                <h3>Checkout ticket</h3>
+                <label>
+                  Methode paiement
+                  <select id="posPaymentMethod">
+                    <option value="card">card</option>
+                    <option value="cash">cash</option>
+                    <option value="transfer">transfer</option>
+                    <option value="mixed">mixed</option>
+                  </select>
+                </label>
+                <button id="checkoutTicketBtn" class="accent">Valider paiement ticket</button>
+                <p id="checkoutState" class="state">Aucun checkout</p>
+              </article>
+
+              <article>
+                <h3>Detail ticket</h3>
+                <pre id="ticketPreview">Aucun ticket charge</pre>
+              </article>
+            </div>
+          </section>
+
+          <section id="tab-marketing" class="tab-pane">
+            <div class="row two panels">
+              <article>
+                <h3>Lancer campagne</h3>
+                <label>Nom campagne <input id="campaignName" value="Offer Friday" /></label>
+                <label>
+                  Canal
+                  <select id="campaignChannel">
+                    <option value="email">email</option>
+                    <option value="sms">sms</option>
+                    <option value="both">both</option>
+                  </select>
+                </label>
+                <label>
+                  Cible
+                  <select id="campaignTargetMode">
+                    <option value="all_customers">all_customers</option>
+                    <option value="email_opt_in">email_opt_in</option>
+                    <option value="sms_opt_in">sms_opt_in</option>
+                    <option value="birthday_today">birthday_today</option>
+                    <option value="min_points">min_points</option>
+                  </select>
+                </label>
+                <label>Sujet <input id="campaignSubject" value="Votre offre du moment" /></label>
+                <label>Message <textarea id="campaignMessage">Profitez de -10% cette semaine en institut.</textarea></label>
+                <label>Min points (si cible min_points) <input id="campaignMinPoints" type="number" min="0" /></label>
+                <button id="sendCampaignBtn" class="accent">Envoyer campagne</button>
+                <button id="sendBirthdayBtn" class="ghost">Envoyer anniversaires du jour</button>
+                <p id="campaignState" class="state">Aucune campagne envoyee</p>
+              </article>
+
+              <article>
+                <h3>Historique campagnes</h3>
+                <button id="loadCampaignsBtn" class="ghost">Rafraichir campagnes</button>
+                <pre id="campaignsPreview">Aucune campagne</pre>
+              </article>
+            </div>
+
+            <div class="row two panels">
+              <article>
+                <h3>Queue notifications</h3>
+                <label>
+                  Filtre statut
+                  <select id="notifStatus">
+                    <option value="">all</option>
+                    <option value="pending" selected>pending</option>
+                    <option value="processing">processing</option>
+                    <option value="sent">sent</option>
+                    <option value="failed">failed</option>
+                  </select>
+                </label>
+                <button id="loadNotificationsBtn" class="ghost">Charger queue</button>
+                <p id="notifMeta" class="muted">Aucune notification</p>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>ID</th><th>Canal</th><th>Statut</th><th>User</th><th>Action</th></tr>
+                    </thead>
+                    <tbody id="notifBody"><tr><td colspan="5" class="empty">No data</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article>
+                <h3>Marquer notification</h3>
+                <label>ID notification <input id="notifId" type="number" min="1" /></label>
+                <label>
+                  Nouveau statut
+                  <select id="notifUpdateStatus">
+                    <option value="sent">sent</option>
+                    <option value="failed">failed</option>
+                  </select>
+                </label>
+                <label>Raison echec (si failed) <input id="notifFailureReason" /></label>
+                <button id="markNotificationBtn">Mettre a jour</button>
+                <p id="notifState" class="state">Aucune mise a jour</p>
+                <pre id="notifUpdatePreview">No payload</pre>
+              </article>
+            </div>
+          </section>
+
+          <section id="tab-gifts" class="tab-pane">
+            <div class="row two panels">
+              <article>
+                <h3>Creer bon cadeau</h3>
+                <label>
+                  Type
+                  <select id="voucherType">
+                    <option value="amount">amount</option>
+                    <option value="service">service</option>
+                  </select>
+                </label>
+                <label>ID service (si type service) <input id="voucherServiceId" type="number" min="1" /></label>
+                <label>Montant centimes (si type amount) <input id="voucherAmountCents" type="number" min="0" value="5000" /></label>
+                <label>Nom acheteur <input id="voucherPurchaser" value="Client Boutique" /></label>
+                <label>Nom beneficiaire <input id="voucherRecipient" value="Recipient Demo" /></label>
+                <label>Email beneficiaire <input id="voucherRecipientEmail" value="recipient@example.com" /></label>
+                <label>Date effective <input id="voucherEffectiveDate" type="date" /></label>
+                <label>Duree (jours) <input id="voucherDurationDays" type="number" min="1" value="365" /></label>
+                <button id="createVoucherBtn" class="accent">Creer voucher</button>
+                <p id="voucherState" class="state">Aucun voucher cree</p>
+              </article>
+
+              <article>
+                <h3>Liste & redemption</h3>
+                <label>Filtre statut <input id="voucherStatusFilter" placeholder="active / redeemed / expired / cancelled" /></label>
+                <label>Code voucher <input id="voucherCodeFilter" placeholder="optionnel" /></label>
+                <button id="loadVouchersBtn" class="ghost">Charger vouchers</button>
+                <pre id="vouchersPreview">No vouchers</pre>
+                <hr />
+                <label>ID voucher a debiter <input id="redeemVoucherId" type="number" min="1" /></label>
+                <label>Montant redemption (centimes) <input id="redeemAmountCents" type="number" min="1" /></label>
+                <label>Note redemption <input id="redeemNote" value="Use in salon" /></label>
+                <button id="redeemVoucherBtn">Redeem voucher</button>
+                <pre id="redeemPreview">No redemption</pre>
+              </article>
+            </div>
+          </section>
+
+          <section id="tab-customers" class="tab-pane">
+            <div class="row two panels">
+              <article>
+                <h3>Fiche client</h3>
+                <label>ID utilisateur client <input id="customerUserId" type="number" min="1" placeholder="ex: 228" /></label>
+                <button id="loadCustomerProfileBtn" class="ghost">Charger profil</button>
+                <pre id="customerProfilePreview">Aucun profil</pre>
+              </article>
+
+              <article>
+                <h3>Staff notes</h3>
+                <label>Notes internes <textarea id="customerStaffNotes" placeholder="Allergies, preferences, historique..." rows="6"></textarea></label>
+                <button id="saveCustomerNotesBtn">Sauvegarder notes</button>
+                <p id="customerState" class="state">Aucune sauvegarde</p>
+              </article>
+            </div>
+          </section>
+        </section>
       </section>
     </main>
 
