@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
+import json
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.main import app
 from app.models.user import User
@@ -214,3 +216,146 @@ def test_cancel_permissions_for_customer_and_staff() -> None:
     )
     assert allowed.status_code == 200
     assert allowed.json()["appointment"]["status"] == "cancelled"
+
+
+def test_appointment_stripe_checkout_session(monkeypatch) -> None:
+    client = TestClient(app)
+    customer_email = _unique_email("cust-appt-pay")
+    staff_email = _unique_email("staff-appt-pay")
+    manager_email = _unique_email("manager-appt-pay")
+
+    _register(client, customer_email)
+    _register(client, staff_email)
+    _register(client, manager_email)
+
+    staff_id = _set_role(staff_email, "staff")
+    _set_role(manager_email, "manager")
+
+    customer_token = _login_token(client, customer_email)
+    staff_token = _login_token(client, staff_email)
+    manager_token = _login_token(client, manager_email)
+
+    service = client.post(
+        "/appointments/services",
+        headers={"Authorization": f"Bearer {staff_token}"},
+        json={"name": "Premium Cut", "description": "Cut and care", "duration_minutes": 45, "price_cents": 4800},
+    )
+    service_id = service.json()["id"]
+
+    client.put(
+        f"/appointments/employees/{staff_id}/profile",
+        headers={"Authorization": f"Bearer {manager_token}"},
+        json={"is_bookable": True, "workday_start_minute": 540, "workday_end_minute": 1080, "slot_step_minutes": 15},
+    )
+
+    slot = _next_day_at_utc(13, 0).isoformat()
+    booking = client.post(
+        "/appointments/book",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={"service_offering_id": service_id, "start_at": slot, "employee_user_id": staff_id, "pay_in_store": False},
+    )
+    assert booking.status_code == 201
+    appointment_id = booking.json()["id"]
+
+    class DummySettings:
+        stripe_secret_key = "sk_test_dummy"
+        stripe_checkout_currency = "eur"
+
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "id": "cs_test_appt_123",
+                    "url": "https://checkout.stripe.com/c/pay/cs_test_appt_123",
+                }
+            ).encode("utf-8")
+
+    monkeypatch.setattr("app.services.appointments.get_settings", lambda: DummySettings())
+    monkeypatch.setattr("app.services.appointments.urlopen", lambda req, timeout=20: DummyResponse())
+
+    checkout = client.post(
+        f"/appointments/{appointment_id}/checkout/stripe-session",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={"success_url": "https://example.com/success", "cancel_url": "https://example.com/cancel"},
+    )
+    assert checkout.status_code == 200
+    body = checkout.json()
+    assert body["session_id"] == "cs_test_appt_123"
+    assert body["checkout_url"].startswith("https://checkout.stripe.com/")
+
+
+def test_internal_appointment_payment_webhook_idempotent() -> None:
+    client = TestClient(app)
+    settings = get_settings()
+
+    customer_email = _unique_email("cust-appt-webhook")
+    staff_email = _unique_email("staff-appt-webhook")
+    manager_email = _unique_email("manager-appt-webhook")
+
+    _register(client, customer_email)
+    _register(client, staff_email)
+    _register(client, manager_email)
+
+    staff_id = _set_role(staff_email, "staff")
+    _set_role(manager_email, "manager")
+
+    customer_token = _login_token(client, customer_email)
+    staff_token = _login_token(client, staff_email)
+    manager_token = _login_token(client, manager_email)
+
+    service = client.post(
+        "/appointments/services",
+        headers={"Authorization": f"Bearer {staff_token}"},
+        json={"name": "Care Session", "description": "Hair care", "duration_minutes": 30, "price_cents": 3500},
+    )
+    service_id = service.json()["id"]
+
+    client.put(
+        f"/appointments/employees/{staff_id}/profile",
+        headers={"Authorization": f"Bearer {manager_token}"},
+        json={"is_bookable": True, "workday_start_minute": 540, "workday_end_minute": 1080, "slot_step_minutes": 15},
+    )
+
+    booking = client.post(
+        "/appointments/book",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={
+            "service_offering_id": service_id,
+            "start_at": _next_day_at_utc(15, 0).isoformat(),
+            "employee_user_id": staff_id,
+            "pay_in_store": False,
+        },
+    )
+    assert booking.status_code == 201
+    appointment_id = booking.json()["id"]
+
+    event_id = f"evt_{uuid4().hex}"
+    payload = {
+        "event_id": event_id,
+        "event_type": "checkout.session.completed",
+        "appointment_id": appointment_id,
+        "payment_status": "paid",
+        "provider_payment_reference": f"pi_{uuid4().hex}",
+        "amount_total_cents": 3500,
+    }
+    first = client.post(
+        "/appointments/internal/payments/stripe/event",
+        headers={"X-Webhook-Token": settings.payment_webhook_token},
+        json=payload,
+    )
+    assert first.status_code == 200
+    assert first.json()["result"] == "processed"
+
+    second = client.post(
+        "/appointments/internal/payments/stripe/event",
+        headers={"X-Webhook-Token": settings.payment_webhook_token},
+        json=payload,
+    )
+    assert second.status_code == 200
+    assert second.json()["result"] == "duplicate"

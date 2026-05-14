@@ -32,6 +32,11 @@ const appointmentState = document.getElementById("appointmentState");
 const appointmentPreview = document.getElementById("appointmentPreview");
 const cancelAppointmentIdInput = document.getElementById("cancelAppointmentId");
 const cancelAppointmentBtn = document.getElementById("cancelAppointmentBtn");
+const payAppointmentIdInput = document.getElementById("payAppointmentId");
+const appointmentSuccessUrlInput = document.getElementById("appointmentSuccessUrl");
+const appointmentCancelUrlInput = document.getElementById("appointmentCancelUrl");
+const payAppointmentBtn = document.getElementById("payAppointmentBtn");
+const appointmentCheckoutLink = document.getElementById("appointmentCheckoutLink");
 
 const loginBtn = document.getElementById("loginBtn");
 const loadProductsBtn = document.getElementById("loadProductsBtn");
@@ -268,6 +273,7 @@ async function bookAppointment() {
     bookState.textContent = `Appointment #${payload.id} booked`;
     bookPreview.textContent = JSON.stringify(payload, null, 2);
     cancelAppointmentIdInput.value = String(payload.id);
+    payAppointmentIdInput.value = String(payload.id);
   } catch (err) {
     bookState.textContent = `Booking failed: ${err.message}`;
   }
@@ -299,6 +305,30 @@ async function cancelAppointment() {
   }
 }
 
+async function payAppointmentOnline() {
+  appointmentState.textContent = "Creating appointment checkout session...";
+  appointmentCheckoutLink.textContent = "";
+  appointmentCheckoutLink.href = "#";
+  try {
+    const id = Number(payAppointmentIdInput.value);
+    if (!id) {
+      throw new Error("Provide appointment ID");
+    }
+    const payload = await api(`/appointments/${id}/checkout/stripe-session`, {
+      method: "POST",
+      body: JSON.stringify({
+        success_url: appointmentSuccessUrlInput.value.trim(),
+        cancel_url: appointmentCancelUrlInput.value.trim(),
+      }),
+    });
+    appointmentState.textContent = `Appointment session created: ${payload.session_id}`;
+    appointmentCheckoutLink.href = payload.checkout_url;
+    appointmentCheckoutLink.textContent = payload.checkout_url;
+  } catch (err) {
+    appointmentState.textContent = `Appointment payment failed: ${err.message}`;
+  }
+}
+
 loginBtn.addEventListener("click", doLogin);
 loadProductsBtn.addEventListener("click", loadProducts);
 addToCartBtn.addEventListener("click", addToCart);
@@ -309,5 +339,6 @@ searchAvailabilityBtn.addEventListener("click", searchAvailability);
 bookAppointmentBtn.addEventListener("click", bookAppointment);
 refreshAppointmentsBtn.addEventListener("click", refreshAppointments);
 cancelAppointmentBtn.addEventListener("click", cancelAppointment);
+payAppointmentBtn.addEventListener("click", payAppointmentOnline);
 
 setDefaultAppointmentDate();

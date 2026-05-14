@@ -10,6 +10,7 @@ Static customer interface for:
 - availability search
 - appointment booking and cancellation
 - appointment history preview
+- appointment online payment (Stripe session generation)
 
 ## Run with Docker
 
