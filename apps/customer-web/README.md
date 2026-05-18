@@ -1,21 +1,25 @@
-# Customer Web (MVP)
+# Customer Web
 
-Static customer interface for:
+Customer-facing static web app connected to the Procuratio API.
 
-- login
-- product selection
-- cart composition
-- Stripe Checkout Session creation
-- appointment catalog loading (services + employees)
-- availability search
-- appointment booking and cancellation
-- appointment history preview
-- appointment online payment (Stripe session generation)
+## Current features
+- Authentication (login/logout)
+- Product catalog with filters
+- Cart creation/refresh and line add/remove
+- Purchase checkout + reservation checkout
+- Stripe checkout session generation for cart payment
+- Appointment catalog loading (services + employees)
+- Availability search, booking, cancellation
+- Appointment Stripe checkout session generation
+- Orders, reservations and appointments history panels
+- Online gift voucher purchase flow
+- Printable voucher output from browser
+- Customer voucher history (`/shop/gift-vouchers/me`)
 
-## Run with Docker
+## Run
 
 ```bash
 docker compose up -d api customer-web
 ```
 
-Open `http://localhost:3000`.
+Open: `http://localhost:3000`

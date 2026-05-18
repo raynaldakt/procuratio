@@ -3,158 +3,166 @@
 ## 1. Roles and access
 
 ### Available roles
-- `customer`: account, appointments, shop cart/orders/reservations.
-- `staff`: operational actions (POS, bookings, campaigns, vouchers, queue handling).
-- `manager`: staff permissions + higher controls (sensitive adjustments/cancellations).
+- `customer`: account, appointments, shop cart/orders/reservations, gift voucher purchase.
+- `staff`: POS operations, booking actions, campaigns, queue operations, voucher operations.
+- `manager`: staff permissions + sensitive controls (manual loyalty adjustment, voucher/subscription cancellation).
 - `admin`: full access.
 
 ### Login
-- Authenticate with your email and password.
-- After login, keep your access token in your client/session.
+1. Authenticate with your email and password.
+2. Keep your access token in your session/client.
 
 ## 2. Product and service setup
 
 ### Add a product
 1. Open stock/product management.
-2. Create a product with name, brand/type, price and stock quantity.
-3. Verify it appears in product search.
+2. Create product with name, brand/type, price and stock quantity.
+3. Verify it appears in search.
 
 ### Add a salon service
 1. Open appointment service management.
 2. Create service with duration and price.
-3. Make sure the service is active.
+3. Ensure `is_active=true`.
 
 ### Configure a bookable employee
-1. Set employee role (`staff` or `manager`).
-2. Configure employee profile with workday start/end and slot step.
+1. Use employee role (`staff`, `manager`, `admin`).
+2. Set profile (`workday_start_minute`, `workday_end_minute`, `slot_step_minutes`).
 3. Enable `is_bookable`.
 
 ## 3. Cash register and invoicing (POS)
 
-### Create and edit a ticket
-1. Create a new sale ticket.
-2. Add product and/or service lines.
-3. Set customer if known.
-4. Apply discount if needed.
+### Ticket workflow
+1. Create sale ticket.
+2. Add product/service lines.
+3. Set customer (optional).
+4. Apply discount.
+5. Suspend/resume if needed.
+6. Checkout with payment method.
 
-### Suspend and resume
-1. Suspend the ticket when customer is not ready.
-2. Resume later from ticket list.
-
-### Checkout
-1. Choose payment method.
-2. Confirm checkout.
-3. Stock is updated automatically.
-4. Loyalty points are credited if customer is attached.
+### Effects
+- Stock updates at checkout.
+- Loyalty points are credited for linked customer.
 
 ## 4. Customer file and loyalty
 
 ### Customer profile
-1. Customer can update own profile (phone, birthdate, marketing consents).
-2. Staff can view customer profile and update staff notes.
+- Customer can update own profile (phone, birthdate, marketing consents).
+- Staff can view customer profile and update staff notes.
 
-### Loyalty operations
-- Purchase points are automatic at paid checkout.
-- Staff can register visits.
+### Loyalty points and visits
+- Purchase points are automatic on paid transactions.
+- Staff can register visit events.
 - Manager/admin can apply manual point adjustments.
-- Transaction history is available for audit.
 
-## 5. Appointments and schedule
+### Paid subscription loyalty plan
+1. In backoffice `Client CRM`, enter customer user ID.
+2. Create subscription (plan name, amount, duration, payment method, bonus points).
+3. Track subscription list/status (`scheduled`, `active`, `expired`, `cancelled`).
+4. Manager/admin can cancel subscription.
 
-### Find availability
+## 5. Appointments and planning
+
+### Availability and booking
 1. Select service, employee and date.
-2. System computes available start slots.
+2. System computes available slots.
+3. Book appointment.
+4. Overlap conflicts are automatically blocked.
 
-### Book appointment
-1. Customer books directly.
-2. Staff can book on behalf of a customer.
-3. Overlapping bookings are automatically rejected.
-
-### Cancel appointment
-- Customer can cancel own appointment.
+### Cancellation
+- Customer can cancel own appointments.
 - Staff/manager/admin can cancel operationally.
+
+### Planning views (backoffice)
+- Planning tab supports `day`, `week`, `month`, `year`.
+- Date navigation: previous/today/next.
+- Employee filter.
+- Visual timeline cards with status and duration.
 
 ## 6. Campaigns and notifications
 
-### Send a campaign
+### Send campaign
 1. Choose channel (`email`, `sms`, `both`).
 2. Choose target mode (`all_customers`, `email_opt_in`, `sms_opt_in`, `birthday_today`, `min_points`).
-3. Enter message (and subject for email).
+3. Fill message (subject required for email).
 4. Launch campaign.
 
 ### Notification queue
-- Pending messages are stored in queue.
-- Staff can mark messages as sent/failed.
+- Pending entries are persisted.
+- Staff can mark entries as `sent` or `failed`.
 
 ## 7. Gift vouchers
 
-### Create voucher
-1. Choose type (`amount` or `service`).
-2. Fill purchaser and recipient information.
-3. Set effective date and validity duration.
+### Staff gift workflow
+1. Create voucher (`amount` or `service`).
+2. Set purchaser/recipient info, effective date, duration.
+3. Redeem partially or fully.
+4. Check redemption history.
 
-### Redeem voucher
-1. Redeem full or partial amount.
-2. Remaining value updates automatically.
-3. Voucher becomes `redeemed` at zero remaining value.
+### Customer online gift purchase
+1. In customer web, open shop tab.
+2. Fill gift voucher purchase form.
+3. Submit purchase.
+4. Use `Imprimer le voucher` for printable output.
+5. Voucher appears in `Mes gift vouchers`.
 
-### Important rules
-- Voucher cannot be redeemed before effective date.
-- Expired/cancelled vouchers are blocked.
-- Redeemed voucher cannot be cancelled.
+### Rules
+- Voucher is blocked before effective date.
+- Expired/cancelled vouchers cannot be redeemed.
+- Fully redeemed vouchers cannot be cancelled.
 
 ## 8. Online shop and reservations
 
 ### Purchase flow
 1. Create/get cart.
 2. Add products.
-3. Checkout purchase.
-4. Order becomes paid and stock is decremented.
+3. Checkout purchase (card/transfer/wallet).
+4. Order becomes paid and stock decreases.
 
-### Reservation flow (pickup)
+### Reservation flow
 1. Create/get cart.
 2. Add products.
 3. Checkout reservation with expiration window.
-4. Stock is held until pickup or expiration.
+4. Stock is held until collect/cancel/expiry.
 
 ### Reservation lifecycle
-- Staff can mark reservation as collected.
+- Staff can collect reservation.
 - Staff can cancel active reservation (stock returned).
-- Expired reservations are swept and automatically restocked.
+- Expired reservations are swept and restocked.
 
 ## 9. Statistics dashboard
 
-### Overview indicators
+### Overview
 - Gross/net revenue and discounts.
-- Number of paid tickets.
-- Number of appointments.
+- Paid tickets count.
+- Appointments count.
 - New customers.
 - Loyalty points earned.
-- Gift voucher sales and redemption values.
+- Gift voucher sold/redeemed values.
 - Top products and top services.
 
 ### Time series
-- Daily series for revenue, paid tickets and appointments.
-- Period filters: day/week/month/year or custom date range.
+- Daily points for revenue, tickets and appointments.
+- Period filters: day/week/month/year or custom dates.
 
 ## 10. FAQ and troubleshooting
 
-### A ticket cannot be modified
+### Ticket cannot be edited
 - Cause: ticket already paid or invalid status.
-- Action: create a new ticket for further changes.
+- Action: create a new ticket for changes.
 
 ### Appointment booking fails
-- Cause: customer or employee overlap, or employee not bookable.
-- Action: choose another slot or update employee profile.
+- Cause: customer/employee overlap or employee not bookable.
+- Action: choose another slot or update profile.
 
-### Voucher redemption fails
-- Cause: voucher expired/not active/cancelled or insufficient remaining value.
-- Action: verify validity dates and remaining balance.
+### Voucher purchase/redeem fails
+- Cause: invalid payload, inactive service, expired/non-active voucher.
+- Action: verify fields, effective date and remaining value.
 
-### Reservation stock not released
-- Action: run expired reservation sweep from staff tools.
+### Notification not delivered
+- Cause: SMTP/Twilio not configured or delivery failed.
+- Action: check worker config and queue status.
 
 ### Security best practices
 - Never share tokens.
-- Use role-based accounts (no shared credentials).
-- Keep `.env` secret and never commit it.
+- Use role-based accounts only.
+- Keep `.env` private and never commit it.

@@ -2,171 +2,159 @@
 
 ## 1. Language and framework choice justification
 
-### Project constraints
-- Large business scope: stock, POS, appointments, loyalty, gifts, campaigns, e-commerce.
-- Security and resilience are grading criteria.
-- Solo development requires fast implementation and maintainability.
+### Constraints
+- Broad functional scope (POS, stock, scheduling, CRM, loyalty, gifts, campaigns, e-commerce).
+- Strong security/stability expectations.
+- Solo development context requiring fast iteration and maintainable architecture.
 
-### Chosen stack
+### Stack
 - Backend: Python 3.12 + FastAPI.
 - ORM: SQLAlchemy 2.
 - Validation: Pydantic.
-- Auth: JWT access/refresh with role-based access control (RBAC).
-- Database: PostgreSQL (runtime), SQLite (CI tests).
+- Auth: JWT access/refresh + RBAC.
+- Database: PostgreSQL (runtime), SQLite (CI).
 - Queue/cache foundation: Redis.
 - Containerization: Docker Compose.
+- Frontend: static HTML/CSS/JS apps for backoffice and customer channels.
 
 ### Why FastAPI
-- Fast endpoint delivery with automatic OpenAPI docs.
-- Strong request validation and typing for safer business logic.
-- Excellent fit with SQLAlchemy and modular service architecture.
+- Fast endpoint delivery with OpenAPI documentation.
+- Strong typed validation for safer business workflows.
+- Good fit for modular service-layer architecture.
 
 ## 2. Service architecture
 
 ### Runtime services
-- `api`: core business API (FastAPI).
-- `postgres`: primary relational database.
+- `api`: core business API.
+- `postgres`: relational persistence.
 - `redis`: queue/cache foundation.
 - `nginx`: reverse proxy entrypoint.
-- `worker-jobs`: asynchronous jobs scaffold.
-- `notification-service`: email/SMS scaffold.
-- `payment-webhook`: payment event receiver scaffold.
-- `backoffice-web` and `customer-web`: frontend scaffolds.
+- `worker-jobs`: async jobs scaffold.
+- `notification-service`: queue consumer for SMTP/Twilio sends.
+- `payment-webhook`: Stripe webhook verification and forwarding.
+- `backoffice-web`, `customer-web`: operational frontend channels.
 
-### API architectural pattern
-- `routes/`: HTTP layer, role checks and response mapping.
-- `schemas/`: input/output DTOs and validation.
-- `services/`: business logic and invariants.
-- `models/`: persistence models.
-- `db/`: engine/session and base model.
-
-### Key business modules implemented in API
-- Authentication and RBAC.
-- Customer profile and loyalty points.
-- Appointments and availability engine.
-- POS/Sales tickets and stock update at checkout.
-- Campaigns and notification queue.
-- Gift vouchers and redemptions.
-- Online shop cart, purchase and product reservations.
-- Dashboard statistics and time series.
+### API layering
+- `routes/`: transport + auth/role checks.
+- `schemas/`: request/response contracts.
+- `services/`: business invariants and workflows.
+- `models/`: relational data model.
+- `db/`: session/engine/bootstrap.
 
 ## 3. Database architecture
 
 ### Core entities
-- `users`: identities and roles (`admin`, `manager`, `staff`, `customer`).
-- `user_refresh_tokens`: refresh token rotation persistence.
-- `customer_profiles`: customer metadata, marketing opt-ins, loyalty aggregates.
-- `loyalty_transactions`: immutable loyalty events.
-- `service_offerings`: salon services (duration and price).
-- `employee_profiles`: booking availability settings by employee.
-- `appointments`: customer/staff schedule entries.
-- `product_items`: stock and sellable products.
-- `sale_tickets`, `sale_ticket_lines`: POS workflow and checkout lines.
-- `marketing_campaigns`, `notification_messages`: campaign targeting and outbound queue.
-- `gift_vouchers`, `gift_voucher_redemptions`: gift lifecycle and consumption tracking.
-- `shop_orders`, `shop_order_lines`, `product_reservations`: online cart, purchase, pickup reservation.
+- `users`, `user_refresh_tokens`
+- `customer_profiles`, `loyalty_transactions`, `loyalty_subscriptions`
+- `service_offerings`, `employee_profiles`, `appointments`
+- `product_items`, `sale_tickets`, `sale_ticket_lines`
+- `shop_orders`, `shop_order_lines`, `product_reservations`
+- `gift_vouchers`, `gift_voucher_redemptions`
+- `marketing_campaigns`, `notification_messages`
+- `payment_webhook_events`, `appointment_payment_webhook_events`, `appointment_payment_states`
 
-### Data integrity principles
-- Explicit foreign keys on all cross-domain relations.
-- Status-based workflows (`draft`, `suspended`, `paid`, etc.).
-- Immutable history tables where needed (`loyalty_transactions`, redemptions).
-- Stock mutation only at transactional business steps (checkout, reservation, expiry sweep).
+### Integrity principles
+- Explicit foreign keys across bounded contexts.
+- Status-driven workflows (`draft`, `suspended`, `paid`, `reserved`, etc.).
+- Immutable/auditable event-style rows for loyalty/redemption/webhook events.
+- Stock mutation only at transactional operations (checkout/reservation/sweep).
 
 ## 4. Security design
 
-### Authentication and session model
-- Password hashing with bcrypt/passlib.
-- Access and refresh JWT separated by secret and type.
-- Refresh token rotation with server-side hash storage.
-- Logout invalidates current refresh token server-side.
+### Authentication and sessions
+- Password hashing with passlib/bcrypt.
+- Access and refresh JWTs with separate token type semantics.
+- Refresh token rotation persisted server-side.
+- Logout invalidates refresh token server-side.
 
-### Authorization model
-- RBAC guard applied at route level.
-- Principle of least privilege is enforced for every role.
-- `customer` can only act on own account/cart/orders.
-- `staff` can operate POS and operational flows.
-- `manager/admin` can access sensitive controls (manual loyalty adjustments, cancellation controls, etc.).
+### Authorization
+- Route-level RBAC (`customer`, `staff`, `manager`, `admin`).
+- Least-privilege boundaries on sensitive actions (manual points, cancellations, internal endpoints).
 
-### Input and workflow hardening
-- Strict payload validation with Pydantic.
-- Ticket edit blocked after payment.
-- Overlap checks in appointment booking (customer and employee).
-- Voucher validity checks (effective date, expiry, remaining amount, status).
-- Reservation sweep returns stock for expired reservations.
+### Hardening
+- Pydantic validation on all payloads.
+- Appointment overlap checks for customer and employee.
+- Voucher validity checks (effective date, expiry, remaining value, status).
+- Internal webhook token + Stripe signature verification with tolerance window.
 
-### Secrets and repository hygiene
-- `.env` excluded from versioning.
-- `.env.example` for safe configuration template.
-- CI secret scanning enabled via Gitleaks.
+### Secrets and hygiene
+- `.env` excluded from VCS.
+- `.env.example` template for required settings.
+- CI secret scanning via Gitleaks.
 
-## 5. Service architecture details by business flow
+## 5. Business flows implementation
 
-### POS and sales flow
-- Create ticket -> add lines -> assign customer -> discount -> suspend/resume -> checkout.
-- Checkout updates stock and generates loyalty points for linked customer.
+### POS / Sales
+- Ticket lifecycle: create -> lines -> customer -> discount -> suspend/resume -> checkout.
+- Checkout updates stock and loyalty points.
 
-### Appointment flow
+### Appointments
 - Service and employee profile setup.
 - Availability search by duration and schedule window.
 - Booking with overlap prevention.
-- Controlled cancellation.
+- Cancellation controls.
+- Optional Stripe checkout session for appointment payment.
 
-### Loyalty flow
-- Automatic earn from purchases.
-- Visit and manual adjustment events.
-- Auditable transaction history and computed balance.
+### Planning
+- Backoffice planning UI supports day/week/month/year views.
+- Employee filter and date navigation.
+- Visual appointment cards by status/duration.
 
-### Gift flow
-- Voucher creation with expiration and type (amount/service).
-- Partial/full redemption with traceability.
-- Protected cancellation rules.
+### Loyalty
+- Purchase earn, visit events, manual adjustment.
+- Paid loyalty subscriptions with statuses (`scheduled`, `active`, `expired`, `cancelled`).
+- Optional subscription bonus points credited in loyalty transactions.
 
-### Campaign flow
-- Audience targeting by profile/points/birthday.
-- Notification queue persistence for worker processing.
-- Status update (`pending`, `sent`, `failed`).
+### Gifts
+- Amount/service voucher creation.
+- Partial/full redemption tracking.
+- Cancellation protections.
+- Online customer voucher purchase with printable payload and queued email notification.
 
-### Online shop flow
+### Campaigns and notifications
+- Targeting modes (`all_customers`, opt-ins, birthday, min_points).
+- Notification queue persistence with status lifecycle (`pending`, `processing`, `sent`, `failed`).
+
+### Shop
 - Cart management.
-- Purchase checkout with paid order and stock decrement.
-- Reservation checkout with stock hold and expiration sweep.
+- Purchase checkout.
+- Reservation checkout + collect/cancel/sweep-expired.
 
-## 6. Mails/SMS and campaign architecture
+### Statistics
+- Overview KPIs (revenue, appointments, loyalty, voucher metrics, top items).
+- Time-series endpoint for charts.
 
-### Current implementation state
-- Campaign targeting and queue persistence are implemented in API.
-- Delivery workers are scaffolded (`notification-service`, `worker-jobs`).
+## 6. Mails/SMS architecture
 
-### Delivery model
-- API creates `notification_messages` rows.
-- Worker fetches pending messages and sends through SMTP/Twilio.
-- Worker writes delivery status and timestamps back.
+### Implemented behavior
+- API writes queued `notification_messages`.
+- `notification-service` pulls queue and sends:
+- Email via SMTP.
+- SMS via Twilio.
+- Delivery status is persisted.
 
-### Reminders and automatic events
-- Architecture supports scheduled jobs for appointment reminders and birthday offers.
-- Birthday campaign endpoint is already present as orchestration trigger.
+### Current operational mode
+- Works in dry-run or real mode based on env config.
+- Real delivery depends on valid SMTP/Twilio credentials.
 
 ## 7. Deployment and operations
 
-### Local/dev operation
-- Services launched with Docker Compose.
-- Healthchecks on PostgreSQL, Redis and API.
-- API available on `:8000` with docs at `/docs`.
+### Local/dev
+- Docker Compose orchestration.
+- Health checks on DB/Redis/API.
+- API docs available at `/docs`.
 
 ### Quality gates
-- CI runs API tests on every push/PR for API changes.
-- Secret scan runs on push/PR.
-- Current test suite validates cross-module business scenarios.
+- API CI tests on push/PR.
+- Secret scan on push/PR.
+- Local smoke test scripts for end-to-end critical paths.
 
-### Production hardening roadmap
-- Migrate from auto `create_all` to versioned migrations (Alembic).
-- Add non-root containers and stricter runtime policies.
-- Add centralized logs/metrics and backup strategy.
-- Connect real payment/webhook verification and notification workers.
+### Test tooling in containers
+- `api` installs `requirements-dev.txt` in compose, ensuring `pytest` is available for local containerized validation.
 
-## 8. Current scope and known limitations
+## 8. Known limitations and roadmap
 
-- Frontend apps remain scaffold placeholders.
-- Notification dispatch workers are scaffolded, not yet fully implemented.
-- Payment provider and webhook signature verification are scaffold stage.
-- Some workflows are currently API-first and need UI integration.
+- No migration framework yet (`create_all` bootstrapping still used): migrate to Alembic for production-grade change management.
+- Worker orchestration is single-process scaffold (no full job scheduler/monitoring stack yet).
+- Real deliverability (SMTP/Twilio reputation, retries, observability) requires production ops setup.
+- UI is static-app based (no SSR/PWA concerns addressed yet).

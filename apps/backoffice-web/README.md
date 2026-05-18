@@ -1,12 +1,20 @@
-# Backoffice Web (MVP)
+# Backoffice Web
 
-Minimal static backoffice dashboard for quick visibility:
+Backoffice static web app connected to the Procuratio API for staff/manager/admin workflows.
 
-- staff/manager login
-- stats overview fetch
-- notifications queue fetch
+## Current features
+- Authentication and operational refresh
+- KPI dashboard (stats overview + top items)
+- Planning tab with day/week/month/year views
+- Planning navigation + employee filter + visual timeline cards
+- POS desk operations (ticket lifecycle + checkout)
+- Campaign launch and birthday campaign trigger
+- Notification queue review and status updates
+- Gift voucher creation/list/redeem operations
+- Customer profile and staff notes tools
+- Paid loyalty subscription management (create/list/cancel)
 
-Run:
+## Run
 
 ```bash
 docker compose up -d api backoffice-web
