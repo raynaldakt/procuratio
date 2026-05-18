@@ -3,9 +3,10 @@
 Use these accounts to test the deployed Procuratio environment.
 
 ## Environment
-- Demo URL: `<PUT_DEMO_URL_HERE>`
-- API docs: `<PUT_DEMO_URL_HERE>/docs`
-- Build/version: `<COMMIT_SHA_OR_TAG>`
+- Demo URL (local run): `http://localhost`
+- API docs (local run): `http://localhost/docs`
+- Build/version: `99b8f3c` (branch `main`)
+- Public demo URL: `<SET_PUBLIC_DEMO_URL_BEFORE_SUBMISSION>`
 
 ## Account provisioning (recommended)
 
