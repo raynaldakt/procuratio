@@ -140,6 +140,40 @@
                 <p id="checkoutState" class="state">En attente</p>
                 <a id="checkoutLink" target="_blank" rel="noopener noreferrer"></a>
               </article>
+
+              <article class="checkout-block">
+                <h3>Cadeau: Bon Voucher</h3>
+                <label>
+                  Type
+                  <select id="giftVoucherType">
+                    <option value="amount">amount</option>
+                    <option value="service">service</option>
+                  </select>
+                </label>
+                <label>
+                  Montant (centimes)
+                  <input id="giftVoucherAmountCents" type="number" min="0" value="5000" />
+                </label>
+                <label>
+                  ID service (si type service)
+                  <input id="giftVoucherServiceId" type="number" min="1" />
+                </label>
+                <label>
+                  Nom beneficiaire
+                  <input id="giftVoucherRecipientName" value="Recipient Demo" />
+                </label>
+                <label>
+                  Email beneficiaire
+                  <input id="giftVoucherRecipientEmail" value="recipient@example.com" />
+                </label>
+                <label>
+                  Duree (jours)
+                  <input id="giftVoucherDurationDays" type="number" min="1" value="365" />
+                </label>
+                <button id="purchaseGiftVoucherBtn" class="accent">Acheter un voucher</button>
+                <button id="printGiftVoucherBtn" class="ghost">Imprimer le voucher</button>
+                <p id="giftVoucherState" class="state">Aucun voucher achete</p>
+              </article>
             </div>
           </section>
 
@@ -246,6 +280,15 @@
                 <pre id="reservationsPreview">Aucune reservation</pre>
               </article>
             </div>
+
+            <article>
+              <h3>Mes gift vouchers</h3>
+              <div class="row two">
+                <button id="refreshGiftVouchersBtn" class="ghost">Rafraichir mes vouchers</button>
+                <button id="printLastGiftVoucherBtn" class="ghost">Imprimer dernier voucher</button>
+              </div>
+              <pre id="giftVouchersPreview">Aucun voucher</pre>
+            </article>
           </section>
         </section>
       </section>

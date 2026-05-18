@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+from app.schemas.gifts import GiftVoucherPublic
 
 
 class ShopCartCreate(BaseModel):
@@ -100,3 +102,21 @@ class ShopCheckoutStripeSessionResponse(BaseModel):
     order: ShopOrderPublic
     session_id: str
     checkout_url: str
+
+
+class ShopGiftVoucherPurchase(BaseModel):
+    voucher_type: Literal["amount", "service"]
+    service_offering_id: int | None = None
+    amount_cents: int | None = Field(default=None, ge=0)
+    purchaser_name: str | None = Field(default=None, max_length=160)
+    recipient_name: str = Field(min_length=2, max_length=160)
+    recipient_email: str | None = Field(default=None, max_length=255)
+    effective_date: date | None = None
+    duration_days: int = Field(default=365, ge=1, le=3650)
+    payment_method: Literal["card", "transfer", "wallet"] = "card"
+
+
+class ShopGiftVoucherPurchaseResponse(BaseModel):
+    voucher: GiftVoucherPublic
+    printable_text: str
+    email_queued_for: list[str]

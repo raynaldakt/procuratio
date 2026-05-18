@@ -142,3 +142,63 @@ def test_loyalty_adjustment_requires_manager_or_admin() -> None:
     )
     assert txns.status_code == 200
     assert any(txn["kind"] == "manual_adjustment" for txn in txns.json())
+
+
+def test_subscription_flow_with_bonus_and_cancellation() -> None:
+    client = TestClient(app)
+    customer_email = _unique_email("sub-customer")
+    staff_email = _unique_email("sub-staff")
+    manager_email = _unique_email("sub-manager")
+
+    _register(client, customer_email)
+    _register(client, staff_email)
+    _register(client, manager_email)
+    _set_role(staff_email, "staff")
+    _set_role(manager_email, "manager")
+
+    customer_token = _login_token(client, customer_email)
+    staff_token = _login_token(client, staff_email)
+    manager_token = _login_token(client, manager_email)
+
+    with SessionLocal() as db:
+        customer = db.scalar(select(User).where(User.email == customer_email))
+        assert customer is not None
+        customer_id = customer.id
+
+    created = client.post(
+        "/loyalty/subscriptions",
+        headers={"Authorization": f"Bearer {staff_token}"},
+        json={
+            "user_id": customer_id,
+            "plan_name": "Premium 30j",
+            "amount_cents": 5900,
+            "duration_days": 30,
+            "payment_method": "card",
+            "bonus_points_granted": 40,
+        },
+    )
+    assert created.status_code == 201
+    sub = created.json()
+    assert sub["status"] == "active"
+    assert sub["bonus_points_granted"] == 40
+
+    my_subs = client.get("/loyalty/me/subscriptions", headers={"Authorization": f"Bearer {customer_token}"})
+    assert my_subs.status_code == 200
+    assert any(row["id"] == sub["id"] for row in my_subs.json())
+
+    txns = client.get(f"/loyalty/users/{customer_id}/transactions", headers={"Authorization": f"Bearer {manager_token}"})
+    assert txns.status_code == 200
+    assert any(txn["kind"] == "subscription_bonus" for txn in txns.json())
+
+    denied_cancel = client.post(
+        f"/loyalty/subscriptions/{sub['id']}/cancel",
+        headers={"Authorization": f"Bearer {staff_token}"},
+    )
+    assert denied_cancel.status_code == 403
+
+    allowed_cancel = client.post(
+        f"/loyalty/subscriptions/{sub['id']}/cancel",
+        headers={"Authorization": f"Bearer {manager_token}"},
+    )
+    assert allowed_cancel.status_code == 200
+    assert allowed_cancel.json()["status"] == "cancelled"

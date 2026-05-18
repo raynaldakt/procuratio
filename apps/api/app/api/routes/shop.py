@@ -1,4 +1,5 @@
 import hmac
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from app.api.dependencies.auth import get_current_user, require_roles
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import User
+from app.schemas.gifts import GiftVoucherPublic
 from app.schemas.sales import ProductPublic
 from app.schemas.shop import (
     ProductReservationPublic,
@@ -20,9 +22,12 @@ from app.schemas.shop import (
     ShopCheckoutStripeSessionResponse,
     ShopOrderDetails,
     ShopOrderPublic,
+    ShopGiftVoucherPurchase,
+    ShopGiftVoucherPurchaseResponse,
     StripeWebhookEventIn,
     StripeWebhookEventProcessResponse,
 )
+from app.services.gifts import build_voucher_printable_text, create_voucher, list_customer_vouchers, queue_voucher_purchase_emails
 from app.services.sales import search_products
 from app.services.shop import (
     add_line_to_cart,
@@ -40,6 +45,7 @@ from app.services.shop import (
     remove_line_from_cart,
     sweep_expired_reservations,
 )
+from app.services.customer import register_purchase
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 settings = get_settings()
@@ -176,6 +182,69 @@ def my_reservations(
 ) -> list[ProductReservationPublic]:
     rows = list_customer_reservations(db, current_user.id)
     return [ProductReservationPublic.model_validate(row) for row in rows]
+
+
+@router.post("/gift-vouchers/purchase", response_model=ShopGiftVoucherPurchaseResponse, status_code=status.HTTP_201_CREATED)
+def purchase_gift_voucher(
+    payload: ShopGiftVoucherPurchase,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ShopGiftVoucherPurchaseResponse:
+    if current_user.role not in {"customer", "staff", "manager", "admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    purchaser_name = payload.purchaser_name or current_user.full_name or current_user.email
+    effective_date = payload.effective_date or datetime.now(timezone.utc).date()
+
+    try:
+        voucher = create_voucher(
+            db=db,
+            voucher_type=payload.voucher_type,
+            service_offering_id=payload.service_offering_id,
+            amount_cents=payload.amount_cents,
+            purchaser_name=purchaser_name,
+            recipient_name=payload.recipient_name,
+            recipient_email=payload.recipient_email,
+            effective_date=effective_date,
+            duration_days=payload.duration_days,
+            created_by_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    try:
+        register_purchase(
+            db=db,
+            user_id=current_user.id,
+            amount_spent_cents=voucher.initial_amount_cents,
+            description=f"Gift voucher purchase ({voucher.code}) via {payload.payment_method}",
+            created_by_user_id=current_user.id,
+        )
+    except ValueError:
+        # If loyalty profile could not be updated, voucher purchase still remains valid.
+        pass
+
+    emailed = queue_voucher_purchase_emails(
+        db=db,
+        voucher=voucher,
+        purchaser_user=current_user,
+        include_recipient=True,
+    )
+    printable_text = build_voucher_printable_text(voucher)
+    return ShopGiftVoucherPurchaseResponse(
+        voucher=GiftVoucherPublic.model_validate(voucher),
+        printable_text=printable_text,
+        email_queued_for=emailed,
+    )
+
+
+@router.get("/gift-vouchers/me", response_model=list[GiftVoucherPublic])
+def my_gift_vouchers(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[GiftVoucherPublic]:
+    rows = list_customer_vouchers(db, current_user)
+    return [GiftVoucherPublic.model_validate(row) for row in rows]
 
 
 @router.post("/reservations/{reservation_id}/collect", response_model=ProductReservationPublic)

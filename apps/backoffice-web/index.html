@@ -61,6 +61,7 @@
         <section class="card workspace">
           <nav class="tabs">
             <button class="tab-btn is-active" data-tab="tab-dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="tab-planning">Planning</button>
             <button class="tab-btn" data-tab="tab-pos">POS Desk</button>
             <button class="tab-btn" data-tab="tab-marketing">Campagnes</button>
             <button class="tab-btn" data-tab="tab-gifts">Gift Vouchers</button>
@@ -108,6 +109,62 @@
               <article><h3>Top services</h3><pre id="topServicesPreview">No data</pre></article>
               <article><h3>JSON Stats</h3><pre id="statsPreview">No data</pre></article>
             </div>
+          </section>
+
+          <section id="tab-planning" class="tab-pane">
+            <div class="row three panels">
+              <article>
+                <h3>Mode d'affichage</h3>
+                <label>
+                  Vue
+                  <select id="planningView">
+                    <option value="day">Jour</option>
+                    <option value="week" selected>Semaine</option>
+                    <option value="month">Mois</option>
+                    <option value="year">Annee</option>
+                  </select>
+                </label>
+                <label>
+                  Date de reference
+                  <input id="planningDate" type="date" />
+                </label>
+                <label>
+                  Employe
+                  <select id="planningEmployee">
+                    <option value="">Tous les employes</option>
+                  </select>
+                </label>
+              </article>
+
+              <article>
+                <h3>Navigation</h3>
+                <div class="row three compact">
+                  <button id="planningPrevBtn" class="ghost">Precedent</button>
+                  <button id="planningTodayBtn" class="ghost">Aujourd'hui</button>
+                  <button id="planningNextBtn" class="ghost">Suivant</button>
+                </div>
+                <button id="planningLoadBtn">Actualiser planning</button>
+                <p id="planningState" class="state">Planning non charge</p>
+              </article>
+
+              <article>
+                <h3>Synthese</h3>
+                <div id="planningSummary" class="planning-summary">
+                  <span class="pill">Total: 0</span>
+                  <span class="pill">Scheduled: 0</span>
+                  <span class="pill">Confirmed: 0</span>
+                  <span class="pill">Cancelled: 0</span>
+                </div>
+                <p class="muted">Vue staff: lecture operationnelle du planning.</p>
+              </article>
+            </div>
+
+            <article class="planning-board">
+              <div id="planningTimeline" class="planning-timeline">
+                <p class="empty">Aucun rendez-vous dans cette plage.</p>
+              </div>
+              <div id="planningGrid" class="planning-grid"></div>
+            </article>
           </section>
 
           <section id="tab-pos" class="tab-pane">
@@ -311,6 +368,37 @@
                 <label>Notes internes <textarea id="customerStaffNotes" placeholder="Allergies, preferences, historique..." rows="6"></textarea></label>
                 <button id="saveCustomerNotesBtn">Sauvegarder notes</button>
                 <p id="customerState" class="state">Aucune sauvegarde</p>
+              </article>
+            </div>
+
+            <div class="row two panels">
+              <article>
+                <h3>Abonnement fidelite payant</h3>
+                <label>Nom du plan <input id="subscriptionPlanName" value="Premium 30j" /></label>
+                <label>Montant (centimes) <input id="subscriptionAmountCents" type="number" min="0" value="5900" /></label>
+                <label>Duree (jours) <input id="subscriptionDurationDays" type="number" min="1" value="30" /></label>
+                <label>Date de debut <input id="subscriptionStartsOn" type="date" /></label>
+                <label>
+                  Methode de paiement
+                  <select id="subscriptionPaymentMethod">
+                    <option value="card">card</option>
+                    <option value="cash">cash</option>
+                    <option value="transfer">transfer</option>
+                    <option value="wallet">wallet</option>
+                  </select>
+                </label>
+                <label>Bonus points <input id="subscriptionBonusPoints" type="number" min="0" value="40" /></label>
+                <button id="createSubscriptionBtn" class="accent">Creer abonnement</button>
+                <p id="subscriptionState" class="state">Aucun abonnement cree</p>
+              </article>
+
+              <article>
+                <h3>Liste / annulation abonnements</h3>
+                <button id="loadSubscriptionsBtn" class="ghost">Charger abonnements client</button>
+                <pre id="subscriptionsPreview">Aucun abonnement</pre>
+                <hr />
+                <label>ID abonnement a annuler <input id="cancelSubscriptionId" type="number" min="1" /></label>
+                <button id="cancelSubscriptionBtn">Annuler abonnement</button>
               </article>
             </div>
           </section>

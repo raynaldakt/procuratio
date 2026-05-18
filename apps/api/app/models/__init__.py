@@ -6,6 +6,7 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.gift_voucher import GiftVoucher
 from app.models.gift_voucher_redemption import GiftVoucherRedemption
 from app.models.loyalty_transaction import LoyaltyTransaction
+from app.models.loyalty_subscription import LoyaltySubscription
 from app.models.marketing_campaign import MarketingCampaign
 from app.models.notification_message import NotificationMessage
 from app.models.payment_webhook_event import PaymentWebhookEvent
@@ -24,6 +25,7 @@ __all__ = [
     "UserRefreshToken",
     "CustomerProfile",
     "LoyaltyTransaction",
+    "LoyaltySubscription",
     "MarketingCampaign",
     "NotificationMessage",
     "PaymentWebhookEvent",

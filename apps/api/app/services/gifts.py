@@ -2,14 +2,17 @@ from datetime import date, datetime, time, timedelta, timezone
 from secrets import token_hex
 from threading import Lock
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.db.session import engine
 from app.models.gift_voucher import GiftVoucher
 from app.models.gift_voucher_redemption import GiftVoucherRedemption
+from app.models.notification_message import NotificationMessage
 from app.models.service_offering import ServiceOffering
+from app.models.user import User
+from app.services.campaigns import ensure_campaigns_schema
 from app.services.sales import ensure_sales_schema
 
 _schema_lock = Lock()
@@ -22,6 +25,7 @@ def ensure_gifts_schema() -> None:
         return
 
     ensure_sales_schema()
+    ensure_campaigns_schema()
     with _schema_lock:
         if _schema_ready:
             return
@@ -199,3 +203,72 @@ def cancel_voucher(db: Session, voucher_id: int) -> GiftVoucher | None:
     db.commit()
     db.refresh(voucher)
     return voucher
+
+
+def list_customer_vouchers(db: Session, user: User) -> list[GiftVoucher]:
+    ensure_gifts_schema()
+    stmt = (
+        select(GiftVoucher)
+        .where(
+            or_(
+                GiftVoucher.created_by_user_id == user.id,
+                GiftVoucher.recipient_email == user.email,
+            )
+        )
+        .order_by(GiftVoucher.created_at.desc())
+        .limit(300)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def build_voucher_printable_text(voucher: GiftVoucher) -> str:
+    amount = voucher.initial_amount_cents / 100
+    return (
+        "PROCURATIO GIFT VOUCHER\n"
+        f"Code: {voucher.code}\n"
+        f"Type: {voucher.voucher_type}\n"
+        f"Value: {amount:.2f} EUR\n"
+        f"Purchaser: {voucher.purchaser_name}\n"
+        f"Recipient: {voucher.recipient_name}\n"
+        f"Effective date: {voucher.effective_date.isoformat()}\n"
+        f"Expires at: {voucher.expires_at.isoformat()}\n"
+        "Keep this voucher code to redeem in-store."
+    )
+
+
+def queue_voucher_purchase_emails(
+    db: Session,
+    *,
+    voucher: GiftVoucher,
+    purchaser_user: User,
+    include_recipient: bool = True,
+) -> list[str]:
+    ensure_gifts_schema()
+    now = datetime.now(timezone.utc)
+    recipients: list[tuple[int, str]] = [(purchaser_user.id, purchaser_user.email)]
+
+    if include_recipient and voucher.recipient_email:
+        recipient_user = db.scalar(select(User).where(User.email == voucher.recipient_email, User.is_active.is_(True)))
+        if recipient_user is not None and recipient_user.id != purchaser_user.id:
+            recipients.append((recipient_user.id, recipient_user.email))
+
+    message = build_voucher_printable_text(voucher)
+    subject = f"Your Gift Voucher {voucher.code}"
+    created: list[str] = []
+    for user_id, email in recipients:
+        db.add(
+            NotificationMessage(
+                campaign_id=None,
+                user_id=user_id,
+                channel="email",
+                kind="gift_voucher",
+                subject=subject,
+                message=message,
+                status="pending",
+                scheduled_for=now,
+            )
+        )
+        created.append(email)
+
+    db.commit()
+    return created

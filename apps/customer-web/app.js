@@ -6,6 +6,7 @@ const state = {
   services: [],
   employees: [],
   appointments: [],
+  lastVoucherPrintableText: "",
 };
 
 const els = {
@@ -33,6 +34,13 @@ const els = {
   cancelUrl: document.getElementById("cancelUrl"),
   checkoutState: document.getElementById("checkoutState"),
   checkoutLink: document.getElementById("checkoutLink"),
+  giftVoucherType: document.getElementById("giftVoucherType"),
+  giftVoucherAmountCents: document.getElementById("giftVoucherAmountCents"),
+  giftVoucherServiceId: document.getElementById("giftVoucherServiceId"),
+  giftVoucherRecipientName: document.getElementById("giftVoucherRecipientName"),
+  giftVoucherRecipientEmail: document.getElementById("giftVoucherRecipientEmail"),
+  giftVoucherDurationDays: document.getElementById("giftVoucherDurationDays"),
+  giftVoucherState: document.getElementById("giftVoucherState"),
 
   serviceSelect: document.getElementById("serviceSelect"),
   employeeSelect: document.getElementById("employeeSelect"),
@@ -48,6 +56,7 @@ const els = {
   appointmentsBody: document.getElementById("appointmentsBody"),
   ordersPreview: document.getElementById("ordersPreview"),
   reservationsPreview: document.getElementById("reservationsPreview"),
+  giftVouchersPreview: document.getElementById("giftVouchersPreview"),
   payAppointmentId: document.getElementById("payAppointmentId"),
   appointmentSuccessUrl: document.getElementById("appointmentSuccessUrl"),
   appointmentCancelUrl: document.getElementById("appointmentCancelUrl"),
@@ -63,6 +72,8 @@ const els = {
   payWalletBtn: document.getElementById("payWalletBtn"),
   reserveBtn: document.getElementById("reserveBtn"),
   stripeCheckoutBtn: document.getElementById("stripeCheckoutBtn"),
+  purchaseGiftVoucherBtn: document.getElementById("purchaseGiftVoucherBtn"),
+  printGiftVoucherBtn: document.getElementById("printGiftVoucherBtn"),
 
   loadAppointmentCatalogBtn: document.getElementById("loadAppointmentCatalogBtn"),
   searchAvailabilityBtn: document.getElementById("searchAvailabilityBtn"),
@@ -71,6 +82,8 @@ const els = {
   refreshAppointmentsBtn: document.getElementById("refreshAppointmentsBtn"),
   refreshOrdersBtn: document.getElementById("refreshOrdersBtn"),
   refreshReservationsBtn: document.getElementById("refreshReservationsBtn"),
+  refreshGiftVouchersBtn: document.getElementById("refreshGiftVouchersBtn"),
+  printLastGiftVoucherBtn: document.getElementById("printLastGiftVoucherBtn"),
   payAppointmentBtn: document.getElementById("payAppointmentBtn"),
 };
 
@@ -373,6 +386,78 @@ async function createCartStripeSession() {
   }
 }
 
+function printVoucherText(text) {
+  if (!text) {
+    setState(els.giftVoucherState, "Aucun voucher a imprimer", "warn");
+    return;
+  }
+  const win = window.open("", "_blank", "width=820,height=640");
+  if (!win) {
+    setState(els.giftVoucherState, "Popup bloquee: autorise les popups pour imprimer", "err");
+    return;
+  }
+  const safe = safeText(text).replace(/\n/g, "<br />");
+  win.document.write(`
+    <html lang="fr">
+      <head>
+        <title>Gift Voucher - Procuratio</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+          h1 { margin: 0 0 12px; }
+          .voucher { border: 2px dashed #0f766e; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <h1>Gift Voucher Procuratio</h1>
+        <div class="voucher">${safe}</div>
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+async function purchaseGiftVoucher() {
+  try {
+    requireAuth();
+    const payload = {
+      voucher_type: els.giftVoucherType.value,
+      service_offering_id: els.giftVoucherServiceId.value ? Number(els.giftVoucherServiceId.value) : null,
+      amount_cents: Number(els.giftVoucherAmountCents.value || "0"),
+      recipient_name: els.giftVoucherRecipientName.value.trim(),
+      recipient_email: els.giftVoucherRecipientEmail.value.trim() || null,
+      duration_days: Number(els.giftVoucherDurationDays.value || "365"),
+      payment_method: "card",
+    };
+    const data = await request("/shop/gift-vouchers/purchase", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.lastVoucherPrintableText = data.printable_text || "";
+    setState(
+      els.giftVoucherState,
+      `Voucher ${data.voucher.code} achete - email queue: ${data.email_queued_for.length}`,
+      "ok",
+    );
+    els.giftVouchersPreview.textContent = JSON.stringify([data.voucher], null, 2);
+  } catch (err) {
+    setState(els.giftVoucherState, `Achat voucher impossible: ${err.message}`, "err");
+  }
+}
+
+async function refreshGiftVouchers() {
+  try {
+    requireAuth();
+    const rows = await request("/shop/gift-vouchers/me");
+    els.giftVouchersPreview.textContent = JSON.stringify(rows, null, 2);
+    setState(els.giftVoucherState, `${rows.length} voucher(s) charge(s)`, rows.length ? "ok" : "warn");
+  } catch (err) {
+    els.giftVouchersPreview.textContent = `Echec vouchers: ${err.message}`;
+    setState(els.giftVoucherState, `Echec vouchers: ${err.message}`, "err");
+  }
+}
+
 async function loadAppointmentCatalog() {
   try {
     requireAuth();
@@ -621,6 +706,8 @@ function bindEvents() {
   els.payWalletBtn.addEventListener("click", () => purchase("wallet"));
   els.reserveBtn.addEventListener("click", reserveCart);
   els.stripeCheckoutBtn.addEventListener("click", createCartStripeSession);
+  els.purchaseGiftVoucherBtn.addEventListener("click", purchaseGiftVoucher);
+  els.printGiftVoucherBtn.addEventListener("click", () => printVoucherText(state.lastVoucherPrintableText));
 
   els.loadAppointmentCatalogBtn.addEventListener("click", loadAppointmentCatalog);
   els.searchAvailabilityBtn.addEventListener("click", searchAvailability);
@@ -643,6 +730,8 @@ function bindEvents() {
   els.refreshAppointmentsBtn.addEventListener("click", refreshAppointments);
   els.refreshOrdersBtn.addEventListener("click", refreshOrders);
   els.refreshReservationsBtn.addEventListener("click", refreshReservations);
+  els.refreshGiftVouchersBtn.addEventListener("click", refreshGiftVouchers);
+  els.printLastGiftVoucherBtn.addEventListener("click", () => printVoucherText(state.lastVoucherPrintableText));
 
   els.appointmentsBody.addEventListener("click", (event) => {
     const target = event.target;

@@ -236,3 +236,34 @@ def test_shop_checkout_stripe_session_marks_order_pending(monkeypatch) -> None:
     assert body["checkout_url"].startswith("https://checkout.stripe.com/")
     assert body["order"]["status"] == "payment_pending"
     assert body["order"]["payment_status"] == "pending"
+
+
+def test_shop_gift_voucher_purchase_returns_printable_and_lists_customer_vouchers() -> None:
+    client = TestClient(app)
+
+    customer_email = _unique_email("customer-voucher")
+    _register(client, customer_email)
+    customer_token = _login(client, customer_email)
+
+    response = client.post(
+        "/shop/gift-vouchers/purchase",
+        headers={"Authorization": f"Bearer {customer_token}"},
+        json={
+            "voucher_type": "amount",
+            "amount_cents": 4500,
+            "recipient_name": "Gift Recipient",
+            "recipient_email": customer_email,
+            "duration_days": 120,
+            "payment_method": "card",
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["voucher"]["voucher_type"] == "amount"
+    assert body["voucher"]["initial_amount_cents"] == 4500
+    assert "PROCURATIO GIFT VOUCHER" in body["printable_text"]
+    assert len(body["email_queued_for"]) >= 1
+
+    mine = client.get("/shop/gift-vouchers/me", headers={"Authorization": f"Bearer {customer_token}"})
+    assert mine.status_code == 200
+    assert any(row["id"] == body["voucher"]["id"] for row in mine.json())

@@ -2,6 +2,11 @@ const state = {
   token: "",
   me: null,
   currentTicketId: null,
+  planning: {
+    catalogLoaded: false,
+    employees: [],
+    servicesById: new Map(),
+  },
 };
 
 const el = {
@@ -29,6 +34,18 @@ const el = {
   topProductsPreview: document.getElementById("topProductsPreview"),
   topServicesPreview: document.getElementById("topServicesPreview"),
   statsPreview: document.getElementById("statsPreview"),
+
+  planningView: document.getElementById("planningView"),
+  planningDate: document.getElementById("planningDate"),
+  planningEmployee: document.getElementById("planningEmployee"),
+  planningPrevBtn: document.getElementById("planningPrevBtn"),
+  planningTodayBtn: document.getElementById("planningTodayBtn"),
+  planningNextBtn: document.getElementById("planningNextBtn"),
+  planningLoadBtn: document.getElementById("planningLoadBtn"),
+  planningState: document.getElementById("planningState"),
+  planningSummary: document.getElementById("planningSummary"),
+  planningTimeline: document.getElementById("planningTimeline"),
+  planningGrid: document.getElementById("planningGrid"),
 
   ticketNotes: document.getElementById("ticketNotes"),
   createTicketBtn: document.getElementById("createTicketBtn"),
@@ -102,6 +119,18 @@ const el = {
   customerStaffNotes: document.getElementById("customerStaffNotes"),
   saveCustomerNotesBtn: document.getElementById("saveCustomerNotesBtn"),
   customerState: document.getElementById("customerState"),
+  subscriptionPlanName: document.getElementById("subscriptionPlanName"),
+  subscriptionAmountCents: document.getElementById("subscriptionAmountCents"),
+  subscriptionDurationDays: document.getElementById("subscriptionDurationDays"),
+  subscriptionStartsOn: document.getElementById("subscriptionStartsOn"),
+  subscriptionPaymentMethod: document.getElementById("subscriptionPaymentMethod"),
+  subscriptionBonusPoints: document.getElementById("subscriptionBonusPoints"),
+  createSubscriptionBtn: document.getElementById("createSubscriptionBtn"),
+  loadSubscriptionsBtn: document.getElementById("loadSubscriptionsBtn"),
+  cancelSubscriptionId: document.getElementById("cancelSubscriptionId"),
+  cancelSubscriptionBtn: document.getElementById("cancelSubscriptionBtn"),
+  subscriptionsPreview: document.getElementById("subscriptionsPreview"),
+  subscriptionState: document.getElementById("subscriptionState"),
 };
 
 function apiBase() {
@@ -176,6 +205,12 @@ function switchTab(tabId) {
   document.querySelectorAll(".tab-pane").forEach((pane) => {
     pane.classList.toggle("is-active", pane.id === tabId);
   });
+
+  if (tabId === "tab-planning" && state.token) {
+    loadPlanning().catch((err) => {
+      setState(el.planningState, `Planning error: ${err.message}`, "err");
+    });
+  }
 }
 
 function setTableRows(tbody, rows, colCount, rowBuilder, emptyMessage = "Aucune donnee") {
@@ -200,6 +235,97 @@ function td(text) {
   return cell;
 }
 
+function toInputDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseInputDate(value) {
+  if (!value) {
+    return new Date();
+  }
+  const [y, m, d] = value.split("-").map((n) => Number(n));
+  return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+}
+
+function planningRange(view, baseDate) {
+  const start = new Date(baseDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+
+  if (view === "day") {
+    end.setDate(end.getDate() + 1);
+    return { start, end, label: start.toLocaleDateString() };
+  }
+
+  if (view === "week") {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + 7);
+    const endLabel = new Date(end.getTime() - 1);
+    return { start, end, label: `${start.toLocaleDateString()} -> ${endLabel.toLocaleDateString()}` };
+  }
+
+  if (view === "month") {
+    start.setDate(1);
+    end.setFullYear(start.getFullYear(), start.getMonth() + 1, 1);
+    return {
+      start,
+      end,
+      label: start.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    };
+  }
+
+  start.setMonth(0, 1);
+  end.setFullYear(start.getFullYear() + 1, 0, 1);
+  return {
+    start,
+    end,
+    label: String(start.getFullYear()),
+  };
+}
+
+function shiftPlanningDate(direction) {
+  const view = el.planningView.value;
+  const current = parseInputDate(el.planningDate.value);
+  const next = new Date(current);
+  if (view === "day") {
+    next.setDate(next.getDate() + direction);
+  } else if (view === "week") {
+    next.setDate(next.getDate() + 7 * direction);
+  } else if (view === "month") {
+    next.setMonth(next.getMonth() + direction);
+  } else {
+    next.setFullYear(next.getFullYear() + direction);
+  }
+  el.planningDate.value = toInputDate(next);
+}
+
+function employeeLabel(userId) {
+  if (userId == null) {
+    return "Employee unassigned";
+  }
+  return `Employee #${userId}`;
+}
+
+function serviceLabel(serviceOfferingId) {
+  if (serviceOfferingId == null) {
+    return "Service unknown";
+  }
+  return state.planning.servicesById.get(serviceOfferingId) || `Service #${serviceOfferingId}`;
+}
+
+function appointmentStatusClass(status) {
+  return `status-${String(status || "").toLowerCase()}`;
+}
+
+function sortByStartAsc(rows) {
+  return rows.slice().sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+}
+
 async function login() {
   setState(el.authState, "Connexion en cours...");
   try {
@@ -212,6 +338,7 @@ async function login() {
     });
     state.token = data.access_token || "";
     state.me = await api("/auth/me");
+    state.planning.catalogLoaded = false;
     setState(el.authState, `Connecte: ${state.me.email} (${state.me.role})`, "ok");
     await refreshAll();
   } catch (err) {
@@ -223,6 +350,7 @@ function logout() {
   state.token = "";
   state.me = null;
   state.currentTicketId = null;
+  state.planning.catalogLoaded = false;
   setState(el.authState, "Deconnecte", "warn");
 }
 
@@ -300,6 +428,248 @@ async function refreshAll() {
   } catch (err) {
     setState(el.authState, err.message, "err");
   }
+}
+
+async function ensurePlanningCatalog() {
+  if (state.planning.catalogLoaded) {
+    return;
+  }
+  const [employees, services] = await Promise.all([api("/appointments/employees"), api("/appointments/services")]);
+  state.planning.employees = employees;
+  state.planning.servicesById = new Map(services.map((svc) => [svc.id, svc.name]));
+
+  const currentValue = el.planningEmployee.value;
+  el.planningEmployee.innerHTML = '<option value="">Tous les employes</option>';
+  employees.forEach((emp) => {
+    const option = document.createElement("option");
+    option.value = String(emp.user_id);
+    option.textContent = employeeLabel(emp.user_id);
+    el.planningEmployee.appendChild(option);
+  });
+
+  if (currentValue && employees.some((emp) => String(emp.user_id) === currentValue)) {
+    el.planningEmployee.value = currentValue;
+  }
+
+  state.planning.catalogLoaded = true;
+}
+
+async function fetchPlanningAppointments(selectedEmployeeId) {
+  const employeeIds = selectedEmployeeId
+    ? [selectedEmployeeId]
+    : state.planning.employees.map((emp) => Number(emp.user_id));
+
+  if (employeeIds.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(employeeIds.map((id) => api(`/appointments/users/${id}`)));
+  const dedup = new Map();
+  results.flat().forEach((row) => {
+    dedup.set(row.id, row);
+  });
+
+  const rows = Array.from(dedup.values());
+  return selectedEmployeeId ? rows.filter((row) => row.employee_user_id === selectedEmployeeId) : rows;
+}
+
+function renderPlanningSummary(rows) {
+  const counts = {
+    total: rows.length,
+    scheduled: 0,
+    confirmed: 0,
+    cancelled: 0,
+  };
+
+  rows.forEach((row) => {
+    const status = String(row.status || "").toLowerCase();
+    if (status in counts) {
+      counts[status] += 1;
+    }
+  });
+
+  el.planningSummary.innerHTML = [
+    `<span class="pill">Total: ${counts.total}</span>`,
+    `<span class="pill">Scheduled: ${counts.scheduled}</span>`,
+    `<span class="pill">Confirmed: ${counts.confirmed}</span>`,
+    `<span class="pill">Cancelled: ${counts.cancelled}</span>`,
+  ].join("");
+}
+
+function renderPlanningTimeline(rows, view, range) {
+  el.planningGrid.classList.remove("months");
+  el.planningGrid.innerHTML = "";
+
+  if (rows.length === 0) {
+    el.planningTimeline.innerHTML = '<p class="empty">Aucun rendez-vous dans cette plage.</p>';
+    return;
+  }
+
+  const groupedByDay = new Map();
+  rows.forEach((row) => {
+    const start = new Date(row.start_at);
+    const dayKey = toInputDate(start);
+    if (!groupedByDay.has(dayKey)) {
+      groupedByDay.set(dayKey, []);
+    }
+    groupedByDay.get(dayKey).push(row);
+  });
+
+  const dayKeys = Array.from(groupedByDay.keys()).sort();
+  el.planningTimeline.innerHTML = dayKeys
+    .map((dayKey) => {
+      const dayRows = sortByStartAsc(groupedByDay.get(dayKey) || []);
+      const byEmployee = new Map();
+      dayRows.forEach((row) => {
+        const key = row.employee_user_id == null ? "unassigned" : String(row.employee_user_id);
+        if (!byEmployee.has(key)) {
+          byEmployee.set(key, []);
+        }
+        byEmployee.get(key).push(row);
+      });
+
+      const employeeBlocks = Array.from(byEmployee.entries())
+        .map(([key, appointments]) => {
+          const employeeId = key === "unassigned" ? null : Number(key);
+          const title = employeeLabel(employeeId);
+          const cards = appointments
+            .map((appt) => {
+              const startAt = new Date(appt.start_at);
+              const endAt = new Date(appt.end_at);
+              const durationMin = Math.max(5, Math.round((endAt.getTime() - startAt.getTime()) / 60000));
+              const statusClass = appointmentStatusClass(appt.status);
+              return `
+                <article class="planning-card ${statusClass}">
+                  <div class="planning-card-top">
+                    <span class="planning-card-time">${safeText(startAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))} - ${safeText(endAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</span>
+                    <span class="planning-status ${statusClass}">${safeText(appt.status)}</span>
+                  </div>
+                  <div><strong>${safeText(serviceLabel(appt.service_offering_id))}</strong></div>
+                  <div>Customer #${safeText(appt.customer_user_id)}</div>
+                  <div>Duration: ${safeText(durationMin)} min - Appointment #${safeText(appt.id)}</div>
+                </article>
+              `;
+            })
+            .join("");
+
+          return `
+            <div class="planning-employee-block">
+              <h5>${safeText(title)}</h5>
+              <div class="planning-cards">${cards}</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      const displayDate = new Date(`${dayKey}T00:00:00`).toLocaleDateString();
+      return `
+        <section class="planning-day-block">
+          <h4>${safeText(displayDate)}</h4>
+          ${employeeBlocks}
+        </section>
+      `;
+    })
+    .join("");
+
+  if (view === "week" || view === "day") {
+    const slots = [];
+    const cursor = new Date(range.start);
+    while (cursor < range.end) {
+      const key = toInputDate(cursor);
+      const count = groupedByDay.get(key)?.length || 0;
+      slots.push(`
+        <article class="planning-cell">
+          <h5>${safeText(cursor.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "2-digit" }))}</h5>
+          <p>${count} appointment(s)</p>
+        </article>
+      `);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    el.planningGrid.innerHTML = slots.join("");
+  }
+}
+
+function renderPlanningMonthGrid(rows, range) {
+  el.planningTimeline.innerHTML = "";
+  const countByDay = new Map();
+  rows.forEach((row) => {
+    const key = toInputDate(new Date(row.start_at));
+    countByDay.set(key, (countByDay.get(key) || 0) + 1);
+  });
+
+  const cells = [];
+  const cursor = new Date(range.start);
+  while (cursor < range.end) {
+    const key = toInputDate(cursor);
+    const count = countByDay.get(key) || 0;
+    cells.push(`
+      <article class="planning-cell">
+        <h5>${safeText(cursor.toLocaleDateString(undefined, { weekday: "short", day: "2-digit" }))}</h5>
+        <p>${count} appointment(s)</p>
+      </article>
+    `);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  el.planningGrid.classList.remove("months");
+  el.planningGrid.innerHTML = cells.join("");
+}
+
+function renderPlanningYearGrid(rows, range) {
+  el.planningTimeline.innerHTML = "";
+  const monthCounts = new Array(12).fill(0);
+  rows.forEach((row) => {
+    const d = new Date(row.start_at);
+    monthCounts[d.getMonth()] += 1;
+  });
+
+  el.planningGrid.classList.add("months");
+  el.planningGrid.innerHTML = monthCounts
+    .map((count, index) => {
+      const label = new Date(range.start.getFullYear(), index, 1).toLocaleDateString(undefined, { month: "long" });
+      return `
+        <article class="planning-cell">
+          <h5>${safeText(label)}</h5>
+          <p>${count} appointment(s)</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function loadPlanning() {
+  ensureAuth();
+  await ensurePlanningCatalog();
+
+  const view = el.planningView.value;
+  const baseDate = parseInputDate(el.planningDate.value);
+  const range = planningRange(view, baseDate);
+  const selectedEmployeeId = el.planningEmployee.value ? Number(el.planningEmployee.value) : null;
+
+  setState(el.planningState, "Chargement planning...");
+  const rows = await fetchPlanningAppointments(selectedEmployeeId);
+  const scoped = sortByStartAsc(
+    rows.filter((row) => {
+      const startAt = new Date(row.start_at).getTime();
+      return startAt >= range.start.getTime() && startAt < range.end.getTime();
+    }),
+  );
+
+  renderPlanningSummary(scoped);
+
+  if (view === "month") {
+    renderPlanningMonthGrid(scoped, range);
+  } else if (view === "year") {
+    renderPlanningYearGrid(scoped, range);
+  } else {
+    renderPlanningTimeline(scoped, view, range);
+  }
+
+  setState(
+    el.planningState,
+    `${scoped.length} appointment(s) - ${range.label}${selectedEmployeeId ? ` - ${employeeLabel(selectedEmployeeId)}` : " - Tous employes"}`,
+    scoped.length ? "ok" : "warn",
+  );
 }
 
 async function createTicket() {
@@ -690,9 +1060,76 @@ async function saveCustomerNotes() {
   }
 }
 
+async function loadSubscriptions() {
+  try {
+    ensureAuth();
+    const userId = Number(el.customerUserId.value || "0");
+    if (!userId) {
+      throw new Error("ID client obligatoire");
+    }
+    const rows = await api(`/loyalty/users/${userId}/subscriptions`);
+    el.subscriptionsPreview.textContent = JSON.stringify(rows, null, 2);
+    setState(el.subscriptionState, `${rows.length} abonnement(s) charges`, rows.length ? "ok" : "warn");
+  } catch (err) {
+    setState(el.subscriptionState, `Chargement abonnements impossible: ${err.message}`, "err");
+  }
+}
+
+async function createSubscription() {
+  try {
+    ensureAuth();
+    const userId = Number(el.customerUserId.value || "0");
+    if (!userId) {
+      throw new Error("ID client obligatoire");
+    }
+
+    const payload = {
+      user_id: userId,
+      plan_name: el.subscriptionPlanName.value.trim(),
+      amount_cents: Number(el.subscriptionAmountCents.value || "0"),
+      duration_days: Number(el.subscriptionDurationDays.value || "30"),
+      starts_on: el.subscriptionStartsOn.value || null,
+      payment_method: el.subscriptionPaymentMethod.value,
+      bonus_points_granted: Number(el.subscriptionBonusPoints.value || "0"),
+    };
+    const row = await api("/loyalty/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    setState(el.subscriptionState, `Abonnement cree (#${row.id})`, "ok");
+    el.cancelSubscriptionId.value = String(row.id);
+    await loadSubscriptions();
+    await loadCustomerProfile();
+  } catch (err) {
+    setState(el.subscriptionState, `Creation abonnement impossible: ${err.message}`, "err");
+  }
+}
+
+async function cancelSubscription() {
+  try {
+    ensureAuth();
+    const subId = Number(el.cancelSubscriptionId.value || "0");
+    if (!subId) {
+      throw new Error("ID abonnement obligatoire");
+    }
+    const row = await api(`/loyalty/subscriptions/${subId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setState(el.subscriptionState, `Abonnement #${row.id} annule`, "ok");
+    await loadSubscriptions();
+  } catch (err) {
+    setState(el.subscriptionState, `Annulation abonnement impossible: ${err.message}`, "err");
+  }
+}
+
 function setDefaultDates() {
   const today = new Date();
-  el.voucherEffectiveDate.value = today.toISOString().slice(0, 10);
+  el.voucherEffectiveDate.value = toInputDate(today);
+  el.planningDate.value = toInputDate(today);
+  if (el.subscriptionStartsOn) {
+    el.subscriptionStartsOn.value = toInputDate(today);
+  }
 }
 
 function bind() {
@@ -703,6 +1140,31 @@ function bind() {
   el.loginBtn.addEventListener("click", login);
   el.logoutBtn.addEventListener("click", logout);
   el.refreshAllBtn.addEventListener("click", refreshAll);
+
+  el.planningLoadBtn.addEventListener("click", () => {
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningPrevBtn.addEventListener("click", () => {
+    shiftPlanningDate(-1);
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningTodayBtn.addEventListener("click", () => {
+    el.planningDate.value = toInputDate(new Date());
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningNextBtn.addEventListener("click", () => {
+    shiftPlanningDate(1);
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningView.addEventListener("change", () => {
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningEmployee.addEventListener("change", () => {
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
+  el.planningDate.addEventListener("change", () => {
+    loadPlanning().catch((err) => setState(el.planningState, err.message, "err"));
+  });
 
   el.createTicketBtn.addEventListener("click", createTicket);
   el.loadTicketBtn.addEventListener("click", loadTicketDetails);
@@ -728,6 +1190,9 @@ function bind() {
 
   el.loadCustomerProfileBtn.addEventListener("click", loadCustomerProfile);
   el.saveCustomerNotesBtn.addEventListener("click", saveCustomerNotes);
+  el.createSubscriptionBtn.addEventListener("click", createSubscription);
+  el.loadSubscriptionsBtn.addEventListener("click", loadSubscriptions);
+  el.cancelSubscriptionBtn.addEventListener("click", cancelSubscription);
 }
 
 bind();
