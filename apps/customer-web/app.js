@@ -8,6 +8,7 @@ const state = {
   appointments: [],
   lastVoucherPrintableText: "",
 };
+const API_BASE_STORAGE_KEY = "procuratio_api_base_url";
 
 const els = {
   apiBase: document.getElementById("apiBase"),
@@ -89,6 +90,60 @@ const els = {
 
 function apiBase() {
   return els.apiBase.value.trim().replace(/\/$/, "");
+}
+
+function normalizeApiBase(raw) {
+  const trimmed = String(raw || "").trim().replace(/\/$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+function initializeApiBaseInput() {
+  let stored = "";
+  try {
+    stored = window.localStorage.getItem(API_BASE_STORAGE_KEY) || "";
+  } catch {
+    stored = "";
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const queryApi = normalizeApiBase(params.get("api") || "");
+  const preferred = queryApi || normalizeApiBase(stored) || normalizeApiBase(els.apiBase.value);
+  if (preferred) {
+    els.apiBase.value = preferred;
+  }
+
+  const persist = () => {
+    const value = normalizeApiBase(els.apiBase.value);
+    if (value) {
+      els.apiBase.value = value;
+    }
+    try {
+      if (value) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, value);
+      } else {
+        window.localStorage.removeItem(API_BASE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore localStorage failures (private mode, browser policy, etc.)
+    }
+  };
+
+  if (queryApi) {
+    try {
+      window.localStorage.setItem(API_BASE_STORAGE_KEY, queryApi);
+    } catch {
+      // Ignore localStorage failures
+    }
+  }
+
+  els.apiBase.addEventListener("change", persist);
+  els.apiBase.addEventListener("blur", persist);
 }
 
 function money(cents) {
@@ -750,5 +805,6 @@ function bindEvents() {
 }
 
 bindEvents();
+initializeApiBaseInput();
 setDefaultDate();
 switchTab("tab-shop");
