@@ -44,3 +44,4 @@ tmp/
 
 # Local sqlite artifacts
 *.db
+backups/
