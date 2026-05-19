@@ -5,8 +5,11 @@ Use these accounts to test the deployed Procuratio environment.
 ## Environment
 - Demo URL (local run): `http://localhost`
 - API docs (local run): `http://localhost/docs`
-- Build/version: `99b8f3c` (branch `main`)
-- Public demo URL: `<SET_PUBLIC_DEMO_URL_BEFORE_SUBMISSION>`
+- Build/version: `b5f2221` (branch `main`)
+- Public customer web URL: `https://customer-web-production-f032.up.railway.app`
+- Public backoffice web URL: `https://backoffice-web-production-2b70.up.railway.app`
+- Public API URL: `https://procuratio-production.up.railway.app`
+- Public API docs URL: `https://procuratio-production.up.railway.app/docs`
 
 ## Account provisioning (recommended)
 
