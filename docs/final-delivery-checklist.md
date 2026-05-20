@@ -1,5 +1,8 @@
 # Final Delivery Checklist (Resit)
 
+> Internal quality-control document used before submission.
+> This file is not required for evaluator testing and can be excluded from the final ZIP if desired.
+
 ## 1. ZIP content (mandatory)
 
 Include these at minimum:

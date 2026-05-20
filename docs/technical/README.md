@@ -144,6 +144,18 @@
 - Health checks on DB/Redis/API.
 - API docs available at `/docs`.
 
+### Public evaluation deployment (Railway)
+- API: `https://procuratio-production.up.railway.app`
+- API docs: `https://procuratio-production.up.railway.app/docs`
+- Customer web: `https://customer-web-production-f032.up.railway.app`
+- Backoffice web: `https://backoffice-web-production-2b70.up.railway.app`
+
+#### Public deployment notes
+- Public PostgreSQL and Redis are provisioned on Railway.
+- Frontends are static deployments and call the API through the public HTTPS domain.
+- CORS is restricted to the two public frontend domains.
+- Demo accounts are seeded on the deployed environment (`admin`, `manager`, `staff`, `customer`).
+
 ### Quality gates
 - API CI tests on push/PR.
 - Secret scan on push/PR.
